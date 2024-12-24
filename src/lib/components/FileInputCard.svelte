@@ -5,6 +5,7 @@
     import { Root as Button } from '$lib/components/ui/button';
     import Label from '$lib/components/ui/label/label.svelte';
     import type { FileType } from './types';
+    import FileUpload from './FileUpload.svelte';
 
     let {
         fileType,
@@ -23,6 +24,7 @@
         accept: string;
         openAsOptions?: { value: string, label: string }[];
     }>();
+    let schema = $state<{ name: string; type: string }[]>([]);
 </script>
 
 <Card>
@@ -49,10 +51,7 @@
                 </Select>
             </div>
         {/if}
-        <div class="mb-4">
-            <Label for="{fileType}-file-upload">Upload File</Label>
-            <Input type="file" id="{fileType}-file-upload" accept={accept} onchange={onFileChange} />
-        </div>
+        
         {#if fileType === 'sqlite' && openAsOptions}
             <div class="mb-4">
                 <Label for="sqlite-open-as">Open As</Label>
@@ -69,5 +68,6 @@
             </div>
         {/if}
         <Button class="w-full" onclick={onImport}>Import</Button>
+        <FileUpload bind:schema={schema} onFileChange={onFileChange} />
     </CardContent>
 </Card>
