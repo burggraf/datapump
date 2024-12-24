@@ -48,7 +48,7 @@
                             <Label for="flat-file-upload">Upload File</Label>
                             <Input type="file" id="flat-file-upload" accept=".csv,.tsv" onchange={handleFileChange} />
                         </div>
-                        <Button onclick={() => alert('Import Flat File')}>Import</Button>
+                        <Button class="w-full" onclick={() => alert('Import Flat File')}>Import</Button>
                     </CardContent>
                 </Card>
                 <Card>
@@ -72,7 +72,7 @@
                             <Label for="spreadsheet-upload">Upload File</Label>
                              <Input type="file" id="spreadsheet-upload" accept=".xls,.xlsx,.xlsm,.xlsb,.ods" onchange={handleFileChange} />
                         </div>
-                        <Button onclick={() => alert('Import Spreadsheet')}>Import</Button>
+                        <Button class="w-full" onclick={() => alert('Import Spreadsheet')}>Import</Button>
                     </CardContent>
                 </Card>
                  <Card>
@@ -84,7 +84,19 @@
                             <Label for="sqlite-file-upload">Upload File</Label>
                             <Input type="file" id="sqlite-file-upload" accept=".sqlite,.db,.sqlite3" onchange={handleFileChange} />
                         </div>
-                        <Button onclick={() => alert('Import SQLite')}>Import</Button>
+                        <div class="mb-4">
+                            <Label for="sqlite-open-as">Open As</Label>
+                            <Select>
+                                <SelectTrigger id="sqlite-open-as" class="w-full">
+                                    <SelectValue placeholder="Select open as" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="db">Database File</SelectItem>
+                                    <SelectItem value="zip">Zip Archive</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Button class="w-full" onclick={() => alert('Import SQLite')}>Import</Button>
                     </CardContent>
                 </Card>
                 <Card>
@@ -109,7 +121,7 @@
                             <Label for="remote-db-connection">Connection String</Label>
                             <Input type="text" id="remote-db-connection" placeholder="Enter connection string" />
                         </div>
-                        <Button onclick={() => alert('Import Remote DB')}>Import</Button>
+                        <Button class="w-full" onclick={() => alert('Import Remote DB')}>Import</Button>
                     </CardContent>
                 </Card>
             </div>
@@ -134,7 +146,7 @@
                                 </SelectContent>
                             </Select>
                         </div>
-                        <Button onclick={() => alert('Export Flat File')}>Export</Button>
+                        <Button class="w-full" onclick={() => alert('Export Flat File')}>Export</Button>
                     </CardContent>
                 </Card>
                 <Card>
@@ -154,17 +166,29 @@
                                 </SelectContent>
                             </Select>
                         </div>
-                        <Button onclick={() => alert('Export Spreadsheet')}>Export</Button>
+                        <Button class="w-full" onclick={() => alert('Export Spreadsheet')}>Export</Button>
                     </CardContent>
                 </Card>
                  <Card>
-                    <CardHeader>
-                        <CardTitle>SQLite</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <Button onclick={() => alert('Export SQLite')}>Export</Button>
-                    </CardContent>
-                </Card>
+                                     <CardHeader>
+                                         <CardTitle>SQLite</CardTitle>
+                                     </CardHeader>
+                                     <CardContent>
+                                         <div class="mb-4">
+                                             <Label for="sqlite-export-as">Export As</Label>
+                                             <Select>
+                                                 <SelectTrigger id="sqlite-export-as" class="w-full">
+                                                     <SelectValue placeholder="Select export type" />
+                                                 </SelectTrigger>
+                                                 <SelectContent>
+                                                     <SelectItem value="db">Database File</SelectItem>
+                                                     <SelectItem value="zip">Zip Archive</SelectItem>
+                                                 </SelectContent>
+                                             </Select>
+                                         </div>
+                                         <Button class="w-full" onclick={() => alert('Export SQLite')}>Export</Button>
+                                     </CardContent>
+                                 </Card>
                 <Card>
                     <CardHeader>
                         <CardTitle>Remote Databases</CardTitle>
@@ -183,7 +207,7 @@
                                 </SelectContent>
                             </Select>
                         </div>
-                        <Button onclick={() => alert('Export Remote DB')}>Export</Button>
+                        <Button class="w-full" onclick={() => alert('Export Remote DB')}>Export</Button>
                     </CardContent>
                 </Card>
             </div>
