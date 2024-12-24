@@ -12,7 +12,9 @@
 		"format": "prettier --write .",
 		"lint": "prettier --check .",
 		"test:e2e": "playwright test",
-		"test": "npm run test:e2e"
+		"test": "npm run test:e2e",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.45.3",
