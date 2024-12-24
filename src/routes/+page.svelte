@@ -176,25 +176,17 @@
     }
 </script>
 
-<div class="container mx-auto p-4">
-    <Tabs value={selectedOperation || 'import'}>
-        <TabsList>
-            <TabsTrigger value="import" onclick={() => selectedOperation = 'import'}>Import</TabsTrigger>
-            <TabsTrigger value="export" onclick={() => selectedOperation = 'export'}>Export</TabsTrigger>
-        </TabsList>
-        {#if selectedOperation === 'import'}
-        <TabsContent value="import">
-            <h2 class="text-2xl font-bold mb-4">Import Data</h2>
-            <DropdownMenu>
-                <DropdownMenuTrigger>Select Import Type</DropdownMenuTrigger>
-                <DropdownMenuContent>
-                    <DropdownMenuItem onclick={() => selectedImportType = 'flat'}>Flat Files</DropdownMenuItem>
-                    <DropdownMenuItem onclick={() => selectedImportType = 'spreadsheet'}>Spreadsheets</DropdownMenuItem>
-                    <DropdownMenuItem onclick={() => selectedImportType = 'sqlite'}>SQLite</DropdownMenuItem>
-                    <DropdownMenuItem onclick={() => selectedImportType = 'database'}>Databases</DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
-            {#if selectedImportType === 'flat'}
+<div class="container mx-auto p-4 flex">
+    <div class="w-1/2 p-4">
+        <h2 class="text-2xl font-bold mb-4">Input</h2>
+        <Tabs value={selectedImportType || 'flat'}>
+            <TabsList>
+                <TabsTrigger value="flat" onclick={() => selectedImportType = 'flat'}>Flat</TabsTrigger>
+                <TabsTrigger value="spreadsheet" onclick={() => selectedImportType = 'spreadsheet'}>Spreadsheet</TabsTrigger>
+                <TabsTrigger value="sqlite" onclick={() => selectedImportType = 'sqlite'}>SQLite</TabsTrigger>
+                <TabsTrigger value="database" onclick={() => selectedImportType = 'database'}>Database</TabsTrigger>
+            </TabsList>
+            <TabsContent value="flat">
                 <Card>
                     <CardHeader>
                         <CardTitle>Flat Files</CardTitle>
@@ -219,8 +211,8 @@
                         <Button class="w-full" onclick={importFlatFile}>Import</Button>
                     </CardContent>
                 </Card>
-            {/if}
-            {#if selectedImportType === 'spreadsheet'}
+            </TabsContent>
+            <TabsContent value="spreadsheet">
                 <Card>
                     <CardHeader>
                         <CardTitle>Spreadsheets</CardTitle>
@@ -245,8 +237,8 @@
                         <Button class="w-full" onclick={importSpreadsheet}>Import</Button>
                     </CardContent>
                 </Card>
-            {/if}
-            {#if selectedImportType === 'sqlite'}
+            </TabsContent>
+            <TabsContent value="sqlite">
                  <Card>
                     <CardHeader>
                         <CardTitle>SQLite</CardTitle>
@@ -271,8 +263,8 @@
                         <Button class="w-full" onclick={importSqlite}>Import</Button>
                     </CardContent>
                 </Card>
-            {/if}
-            {#if selectedImportType === 'database'}
+            </TabsContent>
+            <TabsContent value="database">
                 <Card>
                     <CardHeader>
                         <CardTitle>Databases</CardTitle>
@@ -293,27 +285,24 @@
                         </div>
                         <div class="mb-4">
                             <Label for="remote-db-connection">Connection String</Label>
-                            <Input type="text" id="remote-db-connection" placeholder="Enter connection string" on:input={(e) => databaseConnectionString = e.target.value} />
+                            <Input type="text" id="remote-db-connection" placeholder="Enter connection string" on:input={(e) => databaseConnectionString = (e.target as HTMLInputElement)?.value} />
                         </div>
                         <Button class="w-full" onclick={importDatabase}>Import</Button>
                     </CardContent>
                 </Card>
-            {/if}
-        </TabsContent>
-        {/if}
-        {#if selectedOperation === 'export'}
-        <TabsContent value="export">
-            <h2 class="text-2xl font-bold mb-4">Export Data</h2>
-            <DropdownMenu>
-                <DropdownMenuTrigger>Select Export Type</DropdownMenuTrigger>
-                <DropdownMenuContent>
-                     <DropdownMenuItem onclick={() => selectedExportType = 'flat'}>Flat Files</DropdownMenuItem>
-                    <DropdownMenuItem onclick={() => selectedExportType = 'spreadsheet'}>Spreadsheets</DropdownMenuItem>
-                    <DropdownMenuItem onclick={() => selectedExportType = 'sqlite'}>SQLite</DropdownMenuItem>
-                    <DropdownMenuItem onclick={() => selectedExportType = 'database'}>Databases</DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
-             {#if selectedExportType === 'flat'}
+            </TabsContent>
+        </Tabs>
+    </div>
+    <div class="w-1/2 p-4">
+        <h2 class="text-2xl font-bold mb-4">Output</h2>
+         <Tabs value={selectedExportType || 'flat'}>
+            <TabsList>
+                <TabsTrigger value="flat" onclick={() => selectedExportType = 'flat'}>Flat</TabsTrigger>
+                <TabsTrigger value="spreadsheet" onclick={() => selectedExportType = 'spreadsheet'}>Spreadsheet</TabsTrigger>
+                <TabsTrigger value="sqlite" onclick={() => selectedExportType = 'sqlite'}>SQLite</TabsTrigger>
+                 <TabsTrigger value="database" onclick={() => selectedExportType = 'database'}>Database</TabsTrigger>
+            </TabsList>
+            <TabsContent value="flat">
                 <Card>
                     <CardHeader>
                         <CardTitle>Flat Files</CardTitle>
@@ -334,8 +323,8 @@
                         <Button class="w-full" onclick={exportFlatFile}>Export</Button>
                     </CardContent>
                 </Card>
-            {/if}
-            {#if selectedExportType === 'spreadsheet'}
+            </TabsContent>
+            <TabsContent value="spreadsheet">
                 <Card>
                     <CardHeader>
                         <CardTitle>Spreadsheets</CardTitle>
@@ -356,8 +345,8 @@
                         <Button class="w-full" onclick={exportSpreadsheet}>Export</Button>
                     </CardContent>
                 </Card>
-            {/if}
-             {#if selectedExportType === 'sqlite'}
+            </TabsContent>
+             <TabsContent value="sqlite">
                  <Card>
                      <CardHeader>
                          <CardTitle>SQLite</CardTitle>
@@ -378,8 +367,8 @@
                          <Button class="w-full" onclick={exportSqlite}>Export</Button>
                      </CardContent>
                  </Card>
-            {/if}
-            {#if selectedExportType === 'database'}
+            </TabsContent>
+            <TabsContent value="database">
                 <Card>
                     <CardHeader>
                         <CardTitle>Remote Databases</CardTitle>
@@ -401,8 +390,7 @@
                         <Button class="w-full" onclick={() => alert('Export Remote DB')}>Export</Button>
                     </CardContent>
                 </Card>
-            {/if}
-        </TabsContent>
-        {/if}
-    </Tabs>
+            </TabsContent>
+        </Tabs>
+    </div>
 </div>
