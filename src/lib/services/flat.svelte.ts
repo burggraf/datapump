@@ -19,6 +19,7 @@ const readFirstLines = async (file: File, numLines: number): Promise<string> => 
         lines += chunk;
         const chunkLines = chunk.split('\n');
         currentLineCount += chunkLines.length - 1;
+        console.log('currentLineCount', currentLineCount);
         if (currentLineCount >= numLines) {
           lines = lines.split('\n').slice(0, numLines).join('\n');
           resolve(lines);
@@ -34,7 +35,8 @@ const readFirstLines = async (file: File, numLines: number): Promise<string> => 
 };
 
 export const analyzeSchema = async (file: File): Promise<{ name: string; type: string }[]> => {
-  const fileContent = await readFirstLines(file, 10000);
+  const sampleSize = Number(localStorage.getItem('FLAT-FILE-SAMPLE-SIZE') || '10000');
+  const fileContent = await readFirstLines(file, sampleSize);
 
   return new Promise((resolve, reject) => {
     Papa.parse(fileContent, {
