@@ -34,7 +34,7 @@ const readFirstLines = async (file: File, numLines: number): Promise<string> => 
 };
 
 export const analyzeSchema = async (file: File): Promise<{ name: string; type: string }[]> => {
-  const fileContent = await readFirstLines(file, 10);
+  const fileContent = await readFirstLines(file, 10000);
 
   return new Promise((resolve, reject) => {
     Papa.parse(fileContent, {
