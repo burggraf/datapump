@@ -2,19 +2,39 @@ import Papa from 'papaparse';
 
 const readFirstLines = async (file: File, numLines: number): Promise<string> => {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = reader.result as string;
-      const lines = text.split('\n').slice(0, numLines).join('\n');
-      resolve(lines);
+    const stream = file.stream();
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+    let lines = '';
+    let currentLineCount = 0;
+
+    const read = async () => {
+      try {
+        const { done, value } = await reader.read();
+        if (done) {
+          resolve(lines);
+          return;
+        }
+        const chunk = decoder.decode(value);
+        lines += chunk;
+        const chunkLines = chunk.split('\n');
+        currentLineCount += chunkLines.length - 1;
+        if (currentLineCount >= numLines) {
+          lines = lines.split('\n').slice(0, numLines).join('\n');
+          resolve(lines);
+          return;
+        }
+        read();
+      } catch (error) {
+        reject(error);
+      }
     };
-    reader.onerror = reject;
-    reader.readAsText(file);
+    read();
   });
 };
 
 export const analyzeSchema = async (file: File): Promise<{ name: string; type: string }[]> => {
-  const fileContent = await readFirstLines(file, 10000);
+  const fileContent = await readFirstLines(file, 10);
 
   return new Promise((resolve, reject) => {
     Papa.parse(fileContent, {
