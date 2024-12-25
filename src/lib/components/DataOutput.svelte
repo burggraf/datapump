@@ -4,6 +4,7 @@
     import { Root as Select, Trigger as SelectTrigger, Value as SelectValue, Content as SelectContent, Item as SelectItem } from '$lib/components/ui/select';
     import { Root as Button } from '$lib/components/ui/button';
     import Label from '$lib/components/ui/label/label.svelte';
+    import { Root as Input } from '$lib/components/ui/input';
     import type { FileType, DatabaseType } from './types';
 
     let selectedExportType = $state<'flat' | 'spreadsheet' | 'sqlite' | 'database' | null>(null);
@@ -15,6 +16,30 @@
     let selectedSqliteType = $state<'db' | 'zip' | null>(null);
     let selectedDatabaseType = $state<'postgres' | 'mysql' | 'sqlserver' | null>(null);
     let databaseConnectionString = $state<{ user?: string, password?: string, host?: string, port?: number, dbname?: string } | null>(null);
+
+    $effect.pre(() => {
+        const savedSettings = localStorage.getItem('databaseSettings');
+        if (savedSettings) {
+            try {
+                const settings = JSON.parse(savedSettings);
+                if (settings?.output?.postgres) {
+                    databaseConnectionString = settings.output.postgres;
+                }
+            } catch (e) {
+                console.error("Error parsing saved settings", e);
+            }
+        }
+    });
+
+    $effect(() => {
+        if (databaseConnectionString) {
+            localStorage.setItem('databaseSettings', JSON.stringify({
+                output: {
+                    postgres: databaseConnectionString
+                }
+            }));
+        }
+    });
 
     function exportFlatFile() {
         if (!flatFileContents) {
@@ -195,23 +220,24 @@
                     {#if selectedDatabaseType === 'postgres'}
                         <div class="mb-4">
                             <Label for="postgres-user">User</Label>
-                            <input type="text" id="postgres-user" class="w-full border p-2" value={databaseConnectionString?.user} oninput={(e) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, user: e.target.value} }} />
+                            <Input id="postgres-user" class="w-full" value={databaseConnectionString?.user} onchange={(e: Event) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, user: e.target.value} }} />
                         </div>
                         <div class="mb-4">
                             <Label for="postgres-password">Password</Label>
-                            <input type="password" id="postgres-password" class="w-full border p-2" value={databaseConnectionString?.password} oninput={(e) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, password: e.target.value} }} />
+                            <Input type="password" id="postgres-password" class="w-full" value={databaseConnectionString?.password} onchange={(e: Event) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, password: e.target.value} }} />
                         </div>
                         <div class="mb-4">
                             <Label for="postgres-host">Host</Label>
-                            <input type="text" id="postgres-host" class="w-full border p-2" value={databaseConnectionString?.host} oninput={(e) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, host: e.target.value} }} />
+                            <Input id="postgres-host" class="w-full" value={databaseConnectionString?.host} onchange={(e: Event) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, host: e.target.value} }} />
                         </div>
                         <div class="mb-4">
                             <Label for="postgres-port">Port</Label>
-                            <input type="number" id="postgres-port" class="w-full border p-2" value={databaseConnectionString?.port} oninput={(e) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, port: Number(e.target.value)} }} />
+                            <Input type="number" id="postgres-port" class="w-full" value={databaseConnectionString?.port} onchange={(e: Event) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, port: Number(e.target.value)} }} />
                         </div>
                         <div class="mb-4">
                             <Label for="postgres-dbname">Database Name</Label>
-                            <input type="text" id="postgres-dbname" class="w-full border p-2" value={databaseConnectionString?.dbname} oninput={(e) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, dbname: e.target.value} }} />
+                            <Input id="postgres-dbname" class="w-full" value={databaseConnectionString?.dbname} onchange={(e: Event) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, dbname: e.target.value} }} />
+                            <Button class="w-full mt-2">Test</Button>
                         </div>
                     {/if}
                     <Button class="w-full" onclick={exportDatabase}>Export</Button>
