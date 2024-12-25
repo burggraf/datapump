@@ -66,6 +66,7 @@ export const analyzeSchema = async (file: File): Promise<{ name: string; type: s
           name,
           type: fieldTypes[name] || 'unknown',
         }));
+        console.log('Flat file analysis:', results.meta);
         resolve(schema);
       },
       error: (error: Error) => {
