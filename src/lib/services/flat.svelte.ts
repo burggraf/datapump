@@ -1,18 +1,20 @@
-export const readFile = async (file: File): Promise<string> => {
+import Papa from 'papaparse';
+
+const readFirstLines = async (file: File, numLines: number): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
-      resolve(reader.result as string);
+      const text = reader.result as string;
+      const lines = text.split('\n').slice(0, numLines).join('\n');
+      resolve(lines);
     };
     reader.onerror = reject;
     reader.readAsText(file);
   });
 };
 
-import Papa from 'papaparse';
-
 export const analyzeSchema = async (file: File): Promise<{ name: string; type: string }[]> => {
-  const fileContent = await readFile(file);
+  const fileContent = await readFirstLines(file, 10000);
 
   return new Promise((resolve, reject) => {
     Papa.parse(fileContent, {
