@@ -3,9 +3,9 @@
     import FileInputCard from '$lib/components/FileInputCard.svelte';
     import DatabaseInputCard from '$lib/components/DatabaseInputCard.svelte';
     import type { FileType } from './types';
+    import LoadFile from './LoadFile.svelte';
 
     let selectedImportType = $state<'flat' | 'spreadsheet' | 'sqlite' | 'database' | null>(null);
-    let selectedFile: File | null = null;
     let flatFileContents = $state<string | null>(null);
     let spreadsheetContents = $state<string | null>(null);
     let sqliteContents = $state<string | null>(null);
@@ -14,14 +14,7 @@
     let selectedSqliteType = $state<'db' | 'zip' | null>(null);
     let selectedDatabaseType = $state<'postgres' | 'mysql' | 'sqlserver' | null>(null);
     let databaseConnectionString = $state<string | null>(null);
-
-    function handleFileChange(event: Event) {
-        const input = event.target as HTMLInputElement;
-        if (input.files && input.files.length > 0) {
-            selectedFile = input.files[0];
-            console.log('Selected file:', selectedFile);
-        }
-    }
+    let selectedFile = $state<File | null>(null);
 
     async function importFlatFile() {
         if (!selectedFile) {
@@ -100,21 +93,14 @@
             <TabsTrigger value="database" onclick={() => selectedImportType = 'database'}>Database</TabsTrigger>
         </TabsList>
         <TabsContent value="flat">
-            <FileInputCard
-                fileType="flat"
-                selectedFileType={selectedFlatFileType}
-                onFileTypeChange={(type) => selectedFlatFileType = type}
-                onFileChange={handleFileChange}
-                onImport={importFlatFile}
-                accept=".csv,.tsv"
-            />
+            <LoadFile />
         </TabsContent>
         <TabsContent value="spreadsheet">
             <FileInputCard
                 fileType="spreadsheet"
                 selectedFileType={selectedSpreadsheetType}
-                onFileTypeChange={(type) => selectedSpreadsheetType = type}
-                onFileChange={handleFileChange}
+                onFileTypeChange={(type: FileType) => selectedSpreadsheetType = type as 'excel' | 'google-sheets' | null}
+                onFileChange={() => {}}
                 onImport={importSpreadsheet}
                 accept=".xls,.xlsx,.xlsm,.xlsb,.ods"
             />
@@ -123,8 +109,8 @@
             <FileInputCard
                 fileType="sqlite"
                 selectedFileType={selectedSqliteType}
-                onFileTypeChange={(type) => selectedSqliteType = type}
-                onFileChange={handleFileChange}
+                onFileTypeChange={(type: FileType) => selectedSqliteType = type as 'db' | 'zip' | null}
+                onFileChange={() => {}}
                 onImport={importSqlite}
                 accept=".sqlite,.db,.sqlite3"
                 openAsOptions={[{value: 'db', label: 'Database File'}, {value: 'zip', label: 'Zip Archive'}]}

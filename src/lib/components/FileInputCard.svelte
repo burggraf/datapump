@@ -5,7 +5,6 @@
     import { Root as Button } from '$lib/components/ui/button';
     import Label from '$lib/components/ui/label/label.svelte';
     import type { FileType } from './types';
-    import FileUpload from './FileUpload.svelte';
 
     let {
         fileType,
@@ -68,6 +67,5 @@
             </div>
         {/if}
         <Button class="w-full" onclick={onImport}>Import</Button>
-        <FileUpload bind:schema={schema} onFileChange={onFileChange} />
     </CardContent>
 </Card>
