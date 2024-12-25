@@ -1,39 +1,23 @@
 <script lang="ts">
     import * as Input from "$lib/components/ui/input";
-    import { parse } from 'papaparse';
-    import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '$lib/components/ui/table';
-    import { cn } from '$lib/utils';
+    import { Table, TableCaption, TableHead, TableHeader, TableRow, TableCell } from '$lib/components/ui/table';
     import * as Button from '$lib/components/ui/button';
     import * as Select from '$lib/components/ui/select';
-    
+    import { analyzeSchema } from '$lib/services/flat.svelte';
+
     let file = $state<File | null>(null);
-    let schema = $state<string[]>([]);
-    let parsedData = $state<any[][]>([]);
+    let schema = $state<{ name: string; type: string }[]>([]);
     let selectedFileType = $state<'csv' | 'tsv'>('csv');
 
-    const handleFileChange = (event: Event) => {
+    const handleFileChange = async (event: Event) => {
         const target = event.target as HTMLInputElement;
         if (target && target.files) {
             file = target.files[0];
+            if (file) {
+                schema = await analyzeSchema(file);
+            }
         }
     };
-
-    $effect(() => {
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                if (event.target && event.target.result) {
-                    const csvData = event.target.result as string;
-                    const result = parse(csvData, { header: true, dynamicTyping: true, delimiter: selectedFileType === 'tsv' ? '\t' : ',' });
-                    if (result.data && result.meta && result.meta.fields) {
-                        schema = result.meta.fields;
-                        parsedData = result.data as any[][];
-                    }
-                }
-            };
-            reader.readAsText(file);
-        }
-    });
 
     function triggerFileInput() {
         const input = document.getElementById('file-input') as HTMLInputElement;
@@ -65,20 +49,17 @@
             <TableCaption>Schema of the uploaded file</TableCaption>
             <TableHeader>
                 <TableRow>
-                    {#each schema as column}
-                        <TableHead>{column}</TableHead>
-                    {/each}
+                    <TableHead>Name</TableHead>
+                    <TableHead>Type</TableHead>
                 </TableRow>
             </TableHeader>
-            <TableBody>
-                {#each parsedData as row}
+            
+                {#each schema as column}
                     <TableRow>
-                        {#each schema as column}
-                            <TableCell>{row[column as keyof typeof row]}</TableCell>
-                        {/each}
+                        <TableCell>{column.name}</TableCell>
+                        <TableCell>{column.type}</TableCell>
                     </TableRow>
                 {/each}
-            </TableBody>
         </Table>
     {/if}
 </div>
