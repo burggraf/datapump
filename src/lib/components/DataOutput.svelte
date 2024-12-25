@@ -14,7 +14,7 @@
     let selectedSpreadsheetType = $state<'excel' | 'google-sheets' | null>(null);
     let selectedSqliteType = $state<'db' | 'zip' | null>(null);
     let selectedDatabaseType = $state<'postgres' | 'mysql' | 'sqlserver' | null>(null);
-    let databaseConnectionString = $state<string | null>(null);
+    let databaseConnectionString = $state<{ user?: string, password?: string, host?: string, port?: number, dbname?: string } | null>(null);
 
     function exportFlatFile() {
         if (!flatFileContents) {
@@ -100,7 +100,7 @@
 
 <div class="w-1/2 p-4">
     <h2 class="text-2xl font-bold mb-4">Output</h2>
-     <Tabs value={selectedExportType || 'flat'}>
+     <Tabs value={selectedExportType || 'database'}>
         <TabsList>
             <TabsTrigger value="flat" onclick={() => selectedExportType = 'flat'}>Flat</TabsTrigger>
             <TabsTrigger value="spreadsheet" onclick={() => selectedExportType = 'spreadsheet'}>Spreadsheet</TabsTrigger>
@@ -192,6 +192,28 @@
                             </SelectContent>
                         </Select>
                     </div>
+                    {#if selectedDatabaseType === 'postgres'}
+                        <div class="mb-4">
+                            <Label for="postgres-user">User</Label>
+                            <input type="text" id="postgres-user" class="w-full border p-2" value={databaseConnectionString?.user} oninput={(e) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, user: e.target.value} }} />
+                        </div>
+                        <div class="mb-4">
+                            <Label for="postgres-password">Password</Label>
+                            <input type="password" id="postgres-password" class="w-full border p-2" value={databaseConnectionString?.password} oninput={(e) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, password: e.target.value} }} />
+                        </div>
+                        <div class="mb-4">
+                            <Label for="postgres-host">Host</Label>
+                            <input type="text" id="postgres-host" class="w-full border p-2" value={databaseConnectionString?.host} oninput={(e) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, host: e.target.value} }} />
+                        </div>
+                        <div class="mb-4">
+                            <Label for="postgres-port">Port</Label>
+                            <input type="number" id="postgres-port" class="w-full border p-2" value={databaseConnectionString?.port} oninput={(e) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, port: Number(e.target.value)} }} />
+                        </div>
+                        <div class="mb-4">
+                            <Label for="postgres-dbname">Database Name</Label>
+                            <input type="text" id="postgres-dbname" class="w-full border p-2" value={databaseConnectionString?.dbname} oninput={(e) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, dbname: e.target.value} }} />
+                        </div>
+                    {/if}
                     <Button class="w-full" onclick={exportDatabase}>Export</Button>
                 </CardContent>
             </Card>

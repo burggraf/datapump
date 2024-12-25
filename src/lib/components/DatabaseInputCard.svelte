@@ -41,7 +41,7 @@
         </div>
         <div class="mb-4">
             <Label for="remote-db-connection">Connection String</Label>
-            <Input type="text" id="remote-db-connection" placeholder="Enter connection string" on:input={(e) => onConnectionStringChange((e.target as HTMLInputElement)?.value)} />
+            <Input id="remote-db-connection" placeholder="Enter connection string" on:input={(e) => onConnectionStringChange((e.target as HTMLInputElement)?.value)} />
         </div>
         <Button class="w-full" onclick={onImport}>Import</Button>
     </CardContent>
