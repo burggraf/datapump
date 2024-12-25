@@ -19,7 +19,6 @@ const readFirstLines = async (file: File, numLines: number): Promise<string> => 
         lines += chunk;
         const chunkLines = chunk.split('\n');
         currentLineCount += chunkLines.length - 1;
-        console.log('currentLineCount', currentLineCount);
         if (currentLineCount >= numLines) {
           lines = lines.split('\n').slice(0, numLines).join('\n');
           resolve(lines);
