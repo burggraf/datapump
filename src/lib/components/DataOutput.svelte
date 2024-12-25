@@ -6,8 +6,9 @@
     import Label from '$lib/components/ui/label/label.svelte';
     import { Root as Input } from '$lib/components/ui/input';
     import type { FileType, DatabaseType } from './types';
+    import { invoke } from '@tauri-apps/api/core';
 
-    let selectedExportType = $state<'flat' | 'spreadsheet' | 'sqlite' | 'database' | null>(null);
+    let selectedExportType = $state< 'flat' | 'spreadsheet' | 'sqlite' | 'database' | null>(null);
     let flatFileContents = $state<string | null>(null);
     let spreadsheetContents = $state<string | null>(null);
     let sqliteContents = $state<string | null>(null);
@@ -16,8 +17,12 @@
     let selectedSqliteType = $state<'db' | 'zip' | null>(null);
     let selectedDatabaseType = $state<'postgres' | 'mysql' | 'sqlserver' | null>(null);
     let databaseConnectionString = $state<{ user?: string, password?: string, host?: string, port?: number, dbname?: string } | null>(null);
+    let dbTestResult = $state<string>('Not tested');
+    let sqlQuery = $state<string>('');
+    let queryResult = $state<any>(null);
+    let queryError = $state<string | null>(null);
 
-    $effect.pre(() => {
+    $effect(() => {
         const savedSettings = localStorage.getItem('databaseSettings');
         if (savedSettings) {
             try {
@@ -41,7 +46,7 @@
         }
     });
 
-    function exportFlatFile() {
+    const exportFlatFile = () => {
         if (!flatFileContents) {
             alert('No data to export');
             return;
@@ -63,7 +68,7 @@
         URL.revokeObjectURL(url);
     }
 
-    function exportSpreadsheet() {
+    const exportSpreadsheet = () => {
          if (!spreadsheetContents) {
             alert('No data to export');
             return;
@@ -85,7 +90,7 @@
         URL.revokeObjectURL(url);
     }
 
-    function exportSqlite() {
+    const exportSqlite = () => {
         if (!sqliteContents) {
             alert('No data to export');
             return;
@@ -107,7 +112,36 @@
         URL.revokeObjectURL(url);
     }
 
-    function exportDatabase() {
+    async function handleQuery() {
+        try {
+          const result = await invoke("execute_query", { connectionString: `${selectedDatabaseType}://${databaseConnectionString?.user}:${databaseConnectionString?.password}@${databaseConnectionString?.host}:${databaseConnectionString?.port}/${databaseConnectionString?.dbname}`, query: sqlQuery });
+          queryResult = result;
+          queryError = null;
+        } catch (e: any) {
+          queryResult = null;
+          queryError = e.toString();
+        }
+      }
+
+    const testDatabaseConnection = async () => {
+        if (selectedDatabaseType && databaseConnectionString) {
+            if (window.__TAURI__) {
+                const connectionString = `${selectedDatabaseType}://${databaseConnectionString?.user}:${databaseConnectionString?.password}@${databaseConnectionString?.host}:${databaseConnectionString?.port}/${databaseConnectionString?.dbname}`;
+                    try {
+                        const result = await window.__TAURI__.tauri.invoke('connect', { url: connectionString });
+                        dbTestResult = 'Database connection successful!';
+                        console.log(result);
+                    } catch (e) {
+                        dbTestResult = 'Failed to connect to database: ' + e;
+                        console.error(e);
+                    }
+            }
+        } else {
+            alert('Please select a database type and enter connection details.');
+        }
+    }
+
+    const exportDatabase = () => {
         if (!selectedDatabaseType) {
             alert('Please select a database type');
             return;
@@ -121,8 +155,13 @@
         console.log('Exporting database:', selectedDatabaseType, databaseConnectionString);
         alert('Database export initiated. Check the console for details.');
     }
-</script>
 
+    const updateDatabaseConnectionString = (key: string, value: string | number) => {
+        if (databaseConnectionString) {
+            databaseConnectionString = { ...databaseConnectionString, [key]: value };
+        }
+    }
+</script>
 <div class="w-1/2 p-4">
     <h2 class="text-2xl font-bold mb-4">Output</h2>
      <Tabs value={selectedExportType || 'database'}>
@@ -216,33 +255,46 @@
                                 <SelectItem value="sqlserver" onclick={() => selectedDatabaseType = 'sqlserver'}>SQL Server</SelectItem>
                             </SelectContent>
                         </Select>
-                    </div>
-                    {#if selectedDatabaseType === 'postgres'}
-                        <div class="mb-4">
-                            <Label for="postgres-user">User</Label>
-                            <Input id="postgres-user" class="w-full" value={databaseConnectionString?.user} onchange={(e: Event) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, user: e.target.value} }} />
                         </div>
-                        <div class="mb-4">
-                            <Label for="postgres-password">Password</Label>
-                            <Input type="password" id="postgres-password" class="w-full" value={databaseConnectionString?.password} onchange={(e: Event) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, password: e.target.value} }} />
-                        </div>
-                        <div class="mb-4">
-                            <Label for="postgres-host">Host</Label>
-                            <Input id="postgres-host" class="w-full" value={databaseConnectionString?.host} onchange={(e: Event) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, host: e.target.value} }} />
-                        </div>
-                        <div class="mb-4">
-                            <Label for="postgres-port">Port</Label>
-                            <Input type="number" id="postgres-port" class="w-full" value={databaseConnectionString?.port} onchange={(e: Event) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, port: Number(e.target.value)} }} />
-                        </div>
-                        <div class="mb-4">
-                            <Label for="postgres-dbname">Database Name</Label>
-                            <Input id="postgres-dbname" class="w-full" value={databaseConnectionString?.dbname} onchange={(e: Event) => { if (e.target instanceof HTMLInputElement) databaseConnectionString = {...databaseConnectionString, dbname: e.target.value} }} />
-                            <Button class="w-full mt-2">Test</Button>
-                        </div>
+                        {#if selectedDatabaseType === 'postgres'}
+                            <div class="mb-4">
+                                <Label for="postgres-user">User</Label>
+                                <Input id="postgres-user" class="w-full" value={databaseConnectionString?.user} onchange={(e) => { if (e.target instanceof HTMLInputElement) updateDatabaseConnectionString('user', e.target.value) }} />
+                            </div>
+                            <div class="mb-4">
+                                <Label for="postgres-password">Password</Label>
+                                <Input type="password" id="postgres-password" class="w-full" value={databaseConnectionString?.password} onchange={(e) => { if (e.target instanceof HTMLInputElement) updateDatabaseConnectionString('password', e.target.value) }} />
+                            </div>
+                            <div class="mb-4">
+                                <Label for="postgres-host">Host</Label>
+                                <Input id="postgres-host" class="w-full" value={databaseConnectionString?.host} onchange={(e) => { if (e.target instanceof HTMLInputElement) updateDatabaseConnectionString('host', e.target.value) }} />
+                            </div>
+                            <div class="mb-4">
+                                <Label for="postgres-port">Port</Label>
+                                <Input type="number" id="postgres-port" class="w-full" value={databaseConnectionString?.port} onchange={(e) => { if (e.target instanceof HTMLInputElement) updateDatabaseConnectionString('port', Number(e.target.value)) }} />
+                            </div>
+                            <div class="mb-4">
+                                <Label for="postgres-dbname">Database Name</Label>
+                                <Input id="postgres-dbname" class="w-full" value={databaseConnectionString?.dbname} onchange={(e) => { if (e.target instanceof HTMLInputElement) updateDatabaseConnectionString('dbname', e.target.value) }} />
+                            </div>
+                        <Button class="w-full mb-4" onclick={testDatabaseConnection}>Test Database Connection</Button>
                     {/if}
                     <Button class="w-full" onclick={exportDatabase}>Export</Button>
+
+                    <p>{dbTestResult}</p>
                 </CardContent>
             </Card>
         </TabsContent>
     </Tabs>
+    <div class="mt-4">
+        <Label for="sql-query">SQL Query</Label>
+        <Input id="sql-query" type="textarea" bind:value={sqlQuery} placeholder="Enter SQL query here" />
+        <Button class="mt-2" onclick={handleQuery}>Execute Query</Button>
+        {#if queryError}
+            <p class="text-red-500 mt-2">Error: {queryError}</p>
+        {/if}
+        {#if queryResult}
+            <pre class="mt-2">{JSON.stringify(queryResult, null, 2)}</pre>
+        {/if}
+    </div>
 </div>

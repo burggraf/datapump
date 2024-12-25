@@ -12,3 +12,19 @@ pub async fn connect_db(url: &str) -> Result<Client, Error> {
 
     Ok(client)
 }
+
+#[tauri::command]
+pub async fn test_database_connection(connection_string: String) -> Result<String, String> {
+    match connect_db(&connection_string).await {
+        Ok(client) => {
+            match client.query_one("SELECT version()", &[]).await {
+                Ok(row) => {
+                    let version: String = row.get(0);
+                    Ok(version)
+                }
+                Err(e) => Err(format!("Failed to execute query: {}", e)),
+            }
+        }
+        Err(e) => Err(format!("Failed to connect to database: {}", e)),
+    }
+}

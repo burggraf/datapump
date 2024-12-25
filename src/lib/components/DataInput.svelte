@@ -4,7 +4,7 @@
     import DatabaseInputCard from '$lib/components/DatabaseInputCard.svelte';
     import type { FileType } from './types';
     import LoadFile from './LoadFile.svelte';
-
+    
     let selectedImportType = $state<'flat' | 'spreadsheet' | 'sqlite' | 'database' | null>(null);
     let flatFileContents = $state<string | null>(null);
     let spreadsheetContents = $state<string | null>(null);

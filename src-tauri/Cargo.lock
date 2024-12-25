@@ -95,13 +95,16 @@ name = "app"
 version = "0.1.0"
 dependencies = [
  "log",
+ "rust_decimal",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-log",
+ "time",
  "tokio",
  "tokio-postgres",
+ "uuid",
 ]
 
 [[package]]
@@ -2577,6 +2580,10 @@ dependencies = [
  "bytes",
  "fallible-iterator",
  "postgres-protocol",
+ "serde",
+ "serde_json",
+ "time",
+ "uuid",
 ]
 
 [[package]]
@@ -2924,6 +2931,7 @@ dependencies = [
  "borsh",
  "bytes",
  "num-traits",
+ "postgres-types",
  "rand 0.8.5",
  "rkyv",
  "serde",

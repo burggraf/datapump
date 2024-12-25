@@ -1,12 +1,11 @@
 <script lang="ts">
-  import { invoke } from '@tauri-apps/api/core';
   import { Button } from '$lib/components/ui/button';
   import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '$lib/components/ui/card';
   import { Input } from '$lib/components/ui/input';
   import { Label } from '$lib/components/ui/label';
   import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '$lib/components/ui/select';
   import type { DatabaseType } from './types';
-  
+
   let {
       selectedDatabaseType,
       onDatabaseTypeChange,
@@ -21,14 +20,18 @@
       onImport: () => void;
   }>();
 
-  let connectionString = $state(databaseConnectionString);
-
-  async function handleConnect() {
-    try {
-      await invoke('connect', { url: connectionString });
-      alert('Connected to database!');
-    } catch (e) {
-      alert('Failed to connect to database: ' + e);
+  async function handleConnect(connectionString: string | null) {
+    if (typeof window !== 'undefined' && window.__TAURI__) {
+      console.log('Running inside Tauri environment');
+      try {
+        await window.__TAURI__.tauri.invoke('connect', { url: connectionString });
+        alert('Connected to database!');
+      } catch (e) {
+        alert('Failed to connect to database: ' + e);
+      }
+    } else {
+      console.log('Attempting database connection in development environment:', connectionString);
+      alert('Simulating database connection in development.');
     }
   }
 
@@ -92,9 +95,13 @@
             </Select>
         </div>
         <div class="mb-4">
-            <Label for="remote-db-connection">Connection String</Label>
-            <Input id="remote-db-connection" placeholder="Enter connection string" bind:value={connectionString} />
-            <Button class="w-full mt-2" onclick={handleConnect}>Test</Button>
+          <Label for="remote-db-connection">Connection String</Label>
+          <Input
+            id="remote-db-connection"
+            placeholder="Enter connection string"
+            value={databaseConnectionString ?? ''}
+            onchange={(e) => onConnectionStringChange((e.target as HTMLInputElement).value)}
+          />
         </div>
     </CardContent>
 </Card>
