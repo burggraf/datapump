@@ -119,9 +119,9 @@
         <TabsContent value="database">
             <DatabaseInputCard
                 selectedDatabaseType={selectedDatabaseType}
-                onDatabaseTypeChange={(type) => selectedDatabaseType = type}
+                onDatabaseTypeChange={(type: 'postgres' | 'mysql' | 'sqlserver' | null) => selectedDatabaseType = type}
                 databaseConnectionString={databaseConnectionString}
-                onConnectionStringChange={(value) => databaseConnectionString = value}
+                onConnectionStringChange={(value: string | null) => databaseConnectionString = value}
                 onImport={importDatabase}
             />
         </TabsContent>
