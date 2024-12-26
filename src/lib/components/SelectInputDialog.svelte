@@ -77,8 +77,8 @@
 
 <Dialog.Root {open} onOpenChange={(e) => (open = e)}>
 	<Dialog.Portal>
-		<Dialog.Content class="content max-h-[50vh] overflow-y-auto">
-			<Dialog.Header class="sticky top-0 z-10 bg-background">
+		<Dialog.Content class="content mt-0 max-h-[50vh] overflow-y-scroll pl-0 pr-0 pt-0">
+			<Dialog.Header class="sticky top-0 z-10 bg-background pl-2 pr-2">
 				<table class="w-full">
 					<tbody>
 						<tr>
