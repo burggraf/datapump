@@ -109,7 +109,31 @@
 			{/if}
 		</Card.Content>
 		<Card.Footer>
-			<p>Card Footer</p>
+			<!--<p>Card Footer</p>-->
+			{#if sources.length > 0}
+				<div class="mt-4 w-full p-4">
+					<h2 class="mb-2 text-xl font-bold">Input Sources</h2>
+					<ul>
+						{#each sources as source}
+							<li class="flex w-full items-center border-b p-2">
+								<div
+									role="button"
+									tabindex="0"
+									onclick={() => selectSource(source)}
+									onkeydown={() => selectSource(source)}
+									class="w-full flex-grow cursor-pointer"
+								>
+									<p class="font-bold">{source.title}</p>
+									<p class="text-sm text-gray-500">{source.description}</p>
+								</div>
+								{#if source.selected}
+									<span>✓</span>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
 		</Card.Footer>
 	</Card.Root>
 
@@ -195,30 +219,5 @@
 				</div>
 			</div>
 		</div>
-	</div>
-{/if}
-
-{#if sources.length > 0}
-	<div class="mt-4 p-4">
-		<h2 class="mb-2 text-xl font-bold">Input Sources</h2>
-		<ul>
-			{#each sources as source}
-				<li class="flex items-center justify-between border-b p-2">
-					<div
-						role="button"
-						tabindex="0"
-						onclick={() => selectSource(source)}
-						onkeydown={() => selectSource(source)}
-						class="cursor-pointer"
-					>
-						<p class="font-bold">{source.title}</p>
-						<p class="text-sm text-gray-500">{source.description}</p>
-					</div>
-					{#if source.selected}
-						<span>✓</span>
-					{/if}
-				</li>
-			{/each}
-		</ul>
 	</div>
 {/if}
