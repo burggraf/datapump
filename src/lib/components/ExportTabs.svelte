@@ -44,7 +44,7 @@
         <SqliteExport />
     </TabsContent>
     <TabsContent value="database">
-        <DatabaseExport 
+        <DatabaseExport
             selectedDatabaseType={selectedDatabaseType}
             databaseConnectionString={databaseConnectionString}
             on:selectedDatabaseTypeChange={handleDatabaseTypeChange}

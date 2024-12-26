@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Root as Tabs, List as TabsList, Trigger as TabsTrigger, Content as TabsContent } from '$lib/components/ui/tabs';
+    import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
     import FileInputCard from '$lib/components/FileInputCard.svelte';
     import DatabaseInputCard from '$lib/components/DatabaseInputCard.svelte';
     import type { FileType } from './types';
@@ -85,45 +85,46 @@
 
 <div class="w-1/2 p-4">
     <h2 class="text-2xl font-bold mb-4">Input</h2>
-    <Tabs value={selectedImportType || 'flat'}>
-        <TabsList>
-            <TabsTrigger value="flat" onclick={() => selectedImportType = 'flat'}>Flat</TabsTrigger>
-            <TabsTrigger value="spreadsheet" onclick={() => selectedImportType = 'spreadsheet'}>Spreadsheet</TabsTrigger>
-            <TabsTrigger value="sqlite" onclick={() => selectedImportType = 'sqlite'}>SQLite</TabsTrigger>
-            <TabsTrigger value="database" onclick={() => selectedImportType = 'database'}>Database</TabsTrigger>
-        </TabsList>
-        <TabsContent value="flat">
-            <LoadFile />
-        </TabsContent>
-        <TabsContent value="spreadsheet">
-            <FileInputCard
-                fileType="spreadsheet"
-                selectedFileType={selectedSpreadsheetType}
-                onFileTypeChange={(type: FileType) => selectedSpreadsheetType = type as 'excel' | 'google-sheets' | null}
-                onFileChange={() => {}}
-                onImport={importSpreadsheet}
-                accept=".xls,.xlsx,.xlsm,.xlsb,.ods"
-            />
-        </TabsContent>
-        <TabsContent value="sqlite">
-            <FileInputCard
-                fileType="sqlite"
-                selectedFileType={selectedSqliteType}
-                onFileTypeChange={(type: FileType) => selectedSqliteType = type as 'db' | 'zip' | null}
-                onFileChange={() => {}}
-                onImport={importSqlite}
-                accept=".sqlite,.db,.sqlite3"
-                openAsOptions={[{value: 'db', label: 'Database File'}, {value: 'zip', label: 'Zip Archive'}]}
-            />
-        </TabsContent>
-        <TabsContent value="database">
-            <DatabaseInputCard
-                selectedDatabaseType={selectedDatabaseType}
-                onDatabaseTypeChange={(type: 'postgres' | 'mysql' | 'sqlserver' | null) => selectedDatabaseType = type}
-                databaseConnectionString={databaseConnectionString}
-                onConnectionStringChange={(value: string | null) => databaseConnectionString = value}
-                onImport={importDatabase}
-            />
-        </TabsContent>
-    </Tabs>
+    <Select bind:value={selectedImportType}>
+        <SelectTrigger class="w-full">
+            {selectedImportType || 'Select Input Source'}
+        </SelectTrigger>
+        <SelectContent>
+            {#each inputPresets as preset}
+                <SelectItem value={preset}>{preset}</SelectItem>
+            {/each}
+            <SelectItem value="add_new">Add New Input Source</SelectItem>
+        </SelectContent>
+    </Select>
+
+    {#if selectedImportType === 'flat'}
+        <LoadFile />
+    {:else if selectedImportType === 'spreadsheet'}
+        <FileInputCard
+            fileType="spreadsheet"
+            selectedFileType={selectedSpreadsheetType}
+            onFileTypeChange={(type: FileType) => selectedSpreadsheetType = type as 'excel' | 'google-sheets' | null}
+            onFileChange={() => {}}
+            onImport={importSpreadsheet}
+            accept=".xls,.xlsx,.xlsm,.xlsb,.ods"
+        />
+    {:else if selectedImportType === 'sqlite'}
+        <FileInputCard
+            fileType="sqlite"
+            selectedFileType={selectedSqliteType}
+            onFileTypeChange={(type: FileType) => selectedSqliteType = type as 'db' | 'zip' | null}
+            onFileChange={() => {}}
+            onImport={importSqlite}
+            accept=".sqlite,.db,.sqlite3"
+            openAsOptions={[{value: 'db', label: 'Database File'}, {value: 'zip', label: 'Zip Archive'}]}
+        />
+    {:else if selectedImportType === 'database'}
+        <DatabaseInputCard
+            selectedDatabaseType={selectedDatabaseType}
+            onDatabaseTypeChange={(type: 'postgres' | 'mysql' | 'sqlserver' | null) => selectedDatabaseType = type}
+            databaseConnectionString={databaseConnectionString}
+            onConnectionStringChange={(value: string | null) => databaseConnectionString = value}
+            onImport={importDatabase}
+        />
+    {/if}
 </div>
