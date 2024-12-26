@@ -5,7 +5,7 @@
 	import * as Card from "$lib/components/ui/card";
 	import { executePostgresQuery } from "$lib/services/postgres.svelte";
 	import * as Dialog from "$lib/components/ui/dialog";
-	let open = $state(false);
+	import SelectInputDialog from "$lib/components/SelectInputDialog.svelte";
 	let dialogOpen = $state(false);
 	const testPostgres = async () => {
 		const { data, error } = await executePostgresQuery(
@@ -27,7 +27,7 @@
 
 <header class="flex items-center justify-between bg-gray-100 p-4">
 	<h1 class="flex-grow text-center text-2xl font-bold">Data Pump</h1>
-	<Button variant="ghost" size="icon" onclick={() => (open = true)}>
+	<Button variant="ghost" size="icon">
 		<Settings class="h-6 w-6" />
 	</Button>
 </header>
@@ -47,6 +47,7 @@
 			<p>Card Footer</p>
 		</Card.Footer>
 	</Card.Root>
+	<SelectInputDialog open={dialogOpen} />
 
 	<Card.Root class="w-1/2">
 		<Card.Header>
@@ -63,11 +64,3 @@
 		</Card.Footer>
 	</Card.Root>
 </div>
-
-<Dialog.Root bind:open={dialogOpen}>
-	<Dialog.Content>
-		<Dialog.Header>
-			<Dialog.Title>Select Input</Dialog.Title>
-		</Dialog.Header>
-	</Dialog.Content>
-</Dialog.Root>
