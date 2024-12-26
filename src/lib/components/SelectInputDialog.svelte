@@ -77,7 +77,7 @@
 
 <Dialog.Root {open} onOpenChange={(e) => (open = e)}>
 	<Dialog.Portal>
-		<Dialog.Content class="content mt-0 max-h-[50vh] overflow-y-scroll pl-0 pr-0 pt-0">
+		<Dialog.Content class="content mt-0 max-h-[50vh] gap-0 overflow-y-scroll pl-0 pr-0 pt-0">
 			<Dialog.Header class="sticky top-0 z-10 bg-background pl-2 pr-2">
 				<table class="w-full">
 					<tbody>
@@ -99,7 +99,7 @@
 					</tbody>
 				</table>
 			</Dialog.Header>
-			<Table.Root class="w-full p-4">
+			<Table.Root class="w-full">
 				<Table.Body>
 					{#each inputSources as source, i (i)}
 						<Table.Row
