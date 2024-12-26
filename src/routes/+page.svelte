@@ -14,7 +14,10 @@
 			return;
 		} else {
 			console.log(data);
-			document.getElementById("output").innerText = JSON.stringify(data, null, 2);
+			const outputElement = document.getElementById("output");
+			if (outputElement) {
+				outputElement.innerText = JSON.stringify(data, null, 2);
+			}
 		}
 	};
 </script>
