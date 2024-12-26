@@ -5,8 +5,6 @@
 	import * as Card from "$lib/components/ui/card";
 	import { executePostgresQuery } from "$lib/services/postgres.svelte";
 	import { executeSqliteQuery } from "$lib/services/sqlite.svelte";
-	import * as Dialog from "$lib/components/ui/dialog";
-	import SelectInputDialog from "$lib/components/SelectInputDialog.svelte";
 	let dialogOpen = $state(false);
 	const testPostgres = async () => {
 		const { data, error } = await executePostgresQuery(
@@ -48,7 +46,6 @@
 			<p>Card Footer</p>
 		</Card.Footer>
 	</Card.Root>
-	<SelectInputDialog bind:open={dialogOpen} />
 
 	<Card.Root class="w-1/2">
 		<Card.Header>
