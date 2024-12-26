@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
+    import * as Select from '$lib/components/ui/select';
     import FileInputCard from '$lib/components/FileInputCard.svelte';
     import DatabaseInputCard from '$lib/components/DatabaseInputCard.svelte';
     import type { FileType } from './types';
@@ -90,17 +90,18 @@
 <div class="w-1/2 p-4">
     <h2 class="text-2xl font-bold mb-4">Input</h2>
     <div class="flex items-center space-x-2">
-        <Select on:valueChange={(e: any) => selectedImportType = e.detail}>
-            <SelectTrigger class="w-full" value={selectedImportType}>
-                {selectedImportType || 'Select Input Source'}
-            </SelectTrigger>
-            <SelectContent>
+        <Select.Root selected={selectedImportType} onSelectedChange={(value) => selectedImportType = value}>
+            <Select.Trigger class="w-full">
+                <Select.Value placeholder="Select Input Source" />
+            </Select.Trigger>
+            <Select.Content>
                 {#each inputPresets as preset}
-                    <SelectItem value={preset}>{preset}</SelectItem>
+                    <Select.Item value={preset}>{preset}</Select.Item>
                 {/each}
-                <SelectItem value="add_new" onclick={() => showModal = true}>Add New Input Source</SelectItem>
-            </SelectContent>
-        </Select>
+                <Select.Item value="add_new" onclick={() => showModal = true}>Add New Input Source</Select.Item>
+            </Select.Content>
+            <Select.Input name="importType" bind:value={$selectedImportType} />
+        </Select.Root>
     </div>
     <Dialog open={showModal} onOpenChange={(open) => showModal = open}>
         <DialogContent>

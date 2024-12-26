@@ -34,7 +34,7 @@ const readFirstLines = async (file: File, numLines: number): Promise<string> => 
 };
 
 export const analyzeSchema = async (file: File): Promise<{ name: string; type: string }[]> => {
-  const sampleSize = Number(localStorage.getItem('FLAT-FILE-SAMPLE-SIZE') || '10000');
+  const sampleSize = Number(localStorage.getItem('FLAT-FILE-SAMPLE-SIZE') || '100000');
   const fileContent = await readFirstLines(file, sampleSize);
 
   return new Promise((resolve, reject) => {
