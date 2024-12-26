@@ -4,6 +4,7 @@
 	import { Settings } from "lucide-svelte";
 	import * as Card from "$lib/components/ui/card";
 	import { executePostgresQuery } from "$lib/services/postgres.svelte";
+	import { executeSqliteQuery } from "$lib/services/sqlite.svelte";
 	import * as Dialog from "$lib/components/ui/dialog";
 	import SelectInputDialog from "$lib/components/SelectInputDialog.svelte";
 	let dialogOpen = $state(false);
@@ -57,7 +58,22 @@
 		<Card.Content>
 			<p>Card Content</p>
 			<Button onclick={testPostgres}>test postgres query</Button>
-			<div id="output"></div>
+			<Button
+				onclick={async () => {
+					const { data, error } = await executeSqliteQuery("test.db", "select 1");
+					if (error) {
+						toast.error(error.message);
+						return;
+					} else {
+						toast.success("Sqlite query successful");
+						const outputElement = document.getElementById("output");
+						if (outputElement) {
+							outputElement.innerText = JSON.stringify(data, null, 2);
+						}
+					}
+				}}>test sqlite query</Button
+			>
+			<pre id="output"></pre>
 		</Card.Content>
 		<Card.Footer>
 			<p>Card Footer</p>
