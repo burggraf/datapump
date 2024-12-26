@@ -19,6 +19,54 @@
 		{
 			name: "Screen Share",
 			description: "Share your screen as an input source."
+		},
+		{
+			name: "Camera",
+			description: "Use your device's camera as an input source."
+		},
+		{
+			name: "Microphone",
+			description: "Use your device's microphone as an input source."
+		},
+		{
+			name: "Screen Share",
+			description: "Share your screen as an input source."
+		},
+		{
+			name: "Camera",
+			description: "Use your device's camera as an input source."
+		},
+		{
+			name: "Microphone",
+			description: "Use your device's microphone as an input source."
+		},
+		{
+			name: "Screen Share",
+			description: "Share your screen as an input source."
+		},
+		{
+			name: "Camera",
+			description: "Use your device's camera as an input source."
+		},
+		{
+			name: "Microphone",
+			description: "Use your device's microphone as an input source."
+		},
+		{
+			name: "Screen Share",
+			description: "Share your screen as an input source."
+		},
+		{
+			name: "Camera",
+			description: "Use your device's camera as an input source."
+		},
+		{
+			name: "Microphone",
+			description: "Use your device's microphone as an input source."
+		},
+		{
+			name: "Screen Share",
+			description: "Share your screen as an input source."
 		}
 	];
 	const handleClick = (source: any) => {
@@ -29,17 +77,19 @@
 
 <Dialog.Root {open} onOpenChange={(e) => (open = e)}>
 	<Dialog.Portal>
-		<Dialog.Content class="max-h-[50vh] overflow-y-auto">
-			<Dialog.Header>
+		<Dialog.Content class="content max-h-[50vh] overflow-y-auto">
+			<Dialog.Header class="sticky top-0 z-10 bg-background">
 				<table class="w-full">
 					<tbody>
 						<tr>
 							<td class="w-1/6">
-								<Button onclick={() => (open = false)} variant="ghost" class="p-2">
-									<X />
-								</Button>
+								<Dialog.Close
+									><Button variant="ghost" class="p-2">
+										<X />
+									</Button></Dialog.Close
+								>
 							</td>
-							<td class="w-4/6 text-center"> Select Input </td>
+							<td class="w-4/6 text-center">Select Input</td>
 							<td class="w-1/6 text-right">
 								<Button variant="ghost" class="p-2">
 									<Plus />
