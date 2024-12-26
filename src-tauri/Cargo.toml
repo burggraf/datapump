@@ -28,3 +28,4 @@ tokio = { version = "1", features = ["full"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 rust_decimal = { version = "1.32", features = ["db-tokio-postgres"] }
 time = { version = "0.3", features = ["formatting", "parsing"] }
+sqlite = "0.31"
