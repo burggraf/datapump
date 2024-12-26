@@ -1,4 +1,5 @@
 <script lang="ts">
+	import * as Breadcrumb from "$lib/components/ui/breadcrumb/index.js";
 	import * as Dialog from "$lib/components/ui/dialog";
 	import { Button } from "$lib/components/ui/button";
 	import { X } from "lucide-svelte";
@@ -35,7 +36,20 @@
 					</tbody>
 				</table>
 			</Dialog.Header>
-			<div class="p-4">create new input source</div>
+			<Breadcrumb.Root>
+				<Breadcrumb.List>
+					<Breadcrumb.Item>
+						<Breadcrumb.Page>Type</Breadcrumb.Page>
+					</Breadcrumb.Item>
+				</Breadcrumb.List>
+			</Breadcrumb.Root>
+
+			<div class="p-4">What type of input source?</div>
+			<div class="flex gap-2 p-4">
+				<Button>CSV/TSV File</Button>
+				<Button>SQLite Database</Button>
+				<Button>Remote Database</Button>
+			</div>
 		</Dialog.Content>
 	</Dialog.Portal>
 </Dialog.Root>
