@@ -59,10 +59,10 @@
 
 <Dialog.Root {open} onOpenChange={(e) => (open = e)}>
 	<Dialog.Portal>
-		<Dialog.Content>
-			<Dialog.Header>
-				<Dialog.Title>Select Input</Dialog.Title>
-			</Dialog.Header>
+		<Dialog.Header>
+			<Dialog.Title>Select Input</Dialog.Title>
+		</Dialog.Header>
+		<Dialog.Content class="max-h-[50vh] overflow-y-auto">
 			<Table.Root class="w-full p-4">
 				<Table.Body>
 					{#each inputSources as source, i (i)}
