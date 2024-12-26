@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { toast } from "svelte-sonner";
 	import { Button } from "$lib/components/ui/button";
 	import { Settings } from "lucide-svelte";
 	import * as Card from "$lib/components/ui/card";
@@ -10,10 +11,10 @@
 			"SELECT * FROM pg_catalog.pg_tables"
 		);
 		if (error) {
-			console.error(error);
+			toast.error(error.message);
 			return;
 		} else {
-			console.log(data);
+			toast.success("Postgres query successful");
 			const outputElement = document.getElementById("output");
 			if (outputElement) {
 				outputElement.innerText = JSON.stringify(data, null, 2);
