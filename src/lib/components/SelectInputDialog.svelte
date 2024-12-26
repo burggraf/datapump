@@ -6,7 +6,7 @@
 	});
 </script>
 
-<Dialog.Root {open} onOpenChange={(e) => (open = e.detail)}>
+<Dialog.Root {open} onOpenChange={(e) => (open = e)}>
 	<Dialog.Portal>
 		<Dialog.Content>
 			<Dialog.Header>
