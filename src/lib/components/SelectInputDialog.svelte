@@ -1,6 +1,8 @@
 <script lang="ts">
 	import * as Dialog from "$lib/components/ui/dialog";
 	import * as Table from "$lib/components/ui/table";
+	import { Button } from "$lib/components/ui/button";
+	import { Plus, X } from "lucide-svelte";
 	let { open = $bindable(false) } = $props();
 	$effect(() => {
 		console.log("SelectInputDialog open:", open);
@@ -29,7 +31,23 @@
 	<Dialog.Portal>
 		<Dialog.Content class="max-h-[50vh] overflow-y-auto">
 			<Dialog.Header>
-				<Dialog.Title>Select Input</Dialog.Title>
+				<table class="w-full">
+					<tbody>
+						<tr>
+							<td class="w-1/6">
+								<Button onclick={() => (open = false)} variant="ghost" class="p-2">
+									<X />
+								</Button>
+							</td>
+							<td class="w-4/6 text-center"> Select Input </td>
+							<td class="w-1/6 text-right">
+								<Button variant="ghost" class="p-2">
+									<Plus />
+								</Button>
+							</td>
+						</tr>
+					</tbody>
+				</table>
 			</Dialog.Header>
 			<Table.Root class="w-full p-4">
 				<Table.Body>
