@@ -11,6 +11,10 @@
 	import { writable } from "svelte/store";
 
 	let dialogOpen = $state(false);
+	function toggleDialog() {
+		console.log("toggleDialog called, dialogOpen", dialogOpen);
+		dialogOpen = !dialogOpen;
+	}
 	let sourceType = $state<"File" | "Remote Database">("File");
 	let sourcePath = $state("");
 	let sourceConnection = $state({});
@@ -27,6 +31,19 @@
 
 	let sources = $state<Source[]>([]);
 	let selectedSource = $state<Source | null>(null);
+
+	$effect.pre(() => {
+		const storedSources = localStorage.getItem("inputSources");
+		if (storedSources) {
+			sources = JSON.parse(storedSources);
+		} else {
+			sources = [];
+		}
+	});
+
+	$effect(() => {
+		localStorage.setItem("inputSources", JSON.stringify(sources));
+	});
 
 	const testPostgres = async () => {
 		const { data, error } = await executePostgresQuery(
@@ -54,7 +71,7 @@
 	}
 
 	function handleCredentialsChange(newCredentials: any) {
-		sourceConnection = newCredentials;
+		sourceConnection = { ...newCredentials };
 	}
 
 	function addSource() {
@@ -79,7 +96,7 @@
 	}
 
 	function selectSource(source: Source) {
-		sources = sources.map((s) => ({ ...s, selected: s === source }));
+		sources = sources.map((s) => ({ ...s, selected: s === source ? true : false }));
 		selectedSource = source;
 	}
 </script>
@@ -98,9 +115,7 @@
 			<Card.Description>Select or create an input source</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			<Button class="w-full" variant="outline" onclick={() => (dialogOpen = true)}
-				>Select Input</Button
-			>
+			<Button class="w-full" variant="outline" onclick={toggleDialog}>Select Input</Button>
 			{#if selectedSource}
 				<div class="mt-4">
 					<p class="font-bold">{selectedSource.title}</p>
@@ -120,7 +135,11 @@
 									role="button"
 									tabindex="0"
 									onclick={() => selectSource(source)}
-									onkeydown={() => selectSource(source)}
+									onkeydown={(event) => {
+										if (event.key === "Enter") {
+											selectSource(source);
+										}
+									}}
 									class="w-full flex-grow cursor-pointer"
 								>
 									<p class="font-bold">{source.title}</p>
