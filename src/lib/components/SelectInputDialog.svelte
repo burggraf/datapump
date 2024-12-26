@@ -4,9 +4,6 @@
 </script>
 
 <Dialog.Root {open}>
-	<Dialog.Trigger>
-		<button>Open Dialog</button>
-	</Dialog.Trigger>
 	<Dialog.Portal>
 		<Dialog.Content>
 			<Dialog.Header>

@@ -47,9 +47,7 @@
 			<p>Card Footer</p>
 		</Card.Footer>
 	</Card.Root>
-	{#if dialogOpen}
-		<SelectInputDialog open={dialogOpen} />
-	{/if}
+	<SelectInputDialog open={dialogOpen} />
 
 	<Card.Root class="w-1/2">
 		<Card.Header>
