@@ -5,7 +5,9 @@
     import type { FileType } from './types';
     import LoadFile from './LoadFile.svelte';
     
-    let selectedImportType = $state<'flat' | 'spreadsheet' | 'sqlite' | 'database' | null>(null);
+        let inputPresets = $state<string[]>([
+        ]);
+        let selectedImportType = $state<'flat' | 'spreadsheet' | 'sqlite' | 'database' | null>(null);
     let flatFileContents = $state<string | null>(null);
     let spreadsheetContents = $state<string | null>(null);
     let sqliteContents = $state<string | null>(null);
@@ -85,8 +87,8 @@
 
 <div class="w-1/2 p-4">
     <h2 class="text-2xl font-bold mb-4">Input</h2>
-    <Select bind:value={selectedImportType}>
-        <SelectTrigger class="w-full">
+    <Select on:valueChange={(e) => selectedImportType = e.detail}>
+        <SelectTrigger class="w-full" value={selectedImportType}>
             {selectedImportType || 'Select Input Source'}
         </SelectTrigger>
         <SelectContent>
@@ -97,34 +99,4 @@
         </SelectContent>
     </Select>
 
-    {#if selectedImportType === 'flat'}
-        <LoadFile />
-    {:else if selectedImportType === 'spreadsheet'}
-        <FileInputCard
-            fileType="spreadsheet"
-            selectedFileType={selectedSpreadsheetType}
-            onFileTypeChange={(type: FileType) => selectedSpreadsheetType = type as 'excel' | 'google-sheets' | null}
-            onFileChange={() => {}}
-            onImport={importSpreadsheet}
-            accept=".xls,.xlsx,.xlsm,.xlsb,.ods"
-        />
-    {:else if selectedImportType === 'sqlite'}
-        <FileInputCard
-            fileType="sqlite"
-            selectedFileType={selectedSqliteType}
-            onFileTypeChange={(type: FileType) => selectedSqliteType = type as 'db' | 'zip' | null}
-            onFileChange={() => {}}
-            onImport={importSqlite}
-            accept=".sqlite,.db,.sqlite3"
-            openAsOptions={[{value: 'db', label: 'Database File'}, {value: 'zip', label: 'Zip Archive'}]}
-        />
-    {:else if selectedImportType === 'database'}
-        <DatabaseInputCard
-            selectedDatabaseType={selectedDatabaseType}
-            onDatabaseTypeChange={(type: 'postgres' | 'mysql' | 'sqlserver' | null) => selectedDatabaseType = type}
-            databaseConnectionString={databaseConnectionString}
-            onConnectionStringChange={(value: string | null) => databaseConnectionString = value}
-            onImport={importDatabase}
-        />
-    {/if}
 </div>
