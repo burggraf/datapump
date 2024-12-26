@@ -1,9 +1,7 @@
 <script lang="ts">
-    import DataInput from '$lib/components/DataInput.svelte';
-    import DataOutput from '$lib/components/DataOutput.svelte';
   import { Button } from '$lib/components/ui/button';
-  import SettingsModal from '$lib/components/SettingsModal.svelte';
   import { Settings } from 'lucide-svelte';
+  import * as Card from "$lib/components/ui/card";
   let open = $state(false);
 </script>
 
@@ -13,8 +11,32 @@
     <Settings class="h-6 w-6" />
   </Button>
 </header>
-<div class="container mx-auto p-4 flex">
-  <DataInput />
-  <DataOutput />
-  <SettingsModal bind:open={open} />
+
+
+<div class="flex gap-4 p-4">
+  <Card.Root>
+    <Card.Header>
+      <Card.Title>Input</Card.Title>
+      <Card.Description>Card Description</Card.Description>
+    </Card.Header>
+    <Card.Content>
+      <p>Card Content</p>
+    </Card.Content>
+    <Card.Footer>
+      <p>Card Footer</p>
+    </Card.Footer>
+  </Card.Root>
+
+  <Card.Root>
+    <Card.Header>
+      <Card.Title>Output</Card.Title>
+      <Card.Description>Card Description</Card.Description>
+    </Card.Header>
+    <Card.Content>
+      <p>Card Content</p>
+    </Card.Content>
+    <Card.Footer>
+      <p>Card Footer</p>
+    </Card.Footer>
+  </Card.Root>
 </div>
