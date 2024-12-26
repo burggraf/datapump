@@ -1,3 +1,2 @@
-#!/bin/bash
-npm run dev -- --open 
+npm run tauri:dev
 
