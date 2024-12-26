@@ -247,3 +247,9 @@ Documentation
 - Svelte 5 Runes: https://svelte.dev/docs/svelte/what-are-runes
 
 Refer to Svelte documentation for detailed information on components and best practices.
+
+- Before attempting completion, read the following documentation:
+  - Svelte 5: docs/svelte.txt
+  - SvelteKit: docs/sveltekit.txt
+  - Shadcn-svelte: docs/shadcn-svelte.txt
+After you read the 3 files above, say "I have read the Svelte 5, SvelteKit, and Shadcn-svelte documentation."
