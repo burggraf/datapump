@@ -4,12 +4,12 @@
 mod db;
 
 use db::connect_db;
-use serde::Serialize;
-use tokio_postgres::{NoTls, Row};
-use tokio_postgres::types::Type;
-use uuid::Uuid;
 use rust_decimal::Decimal;
+use serde::Serialize;
 use time::OffsetDateTime;
+use tokio_postgres::types::Type;
+use tokio_postgres::{NoTls, Row};
+use uuid::Uuid;
 
 #[derive(Debug, Serialize)]
 struct QueryResult {
@@ -19,71 +19,54 @@ struct QueryResult {
 
 async fn format_row_value(row: &Row, i: usize, col_type: &Type) -> String {
     match col_type {
-        &Type::BOOL => {
-            match row.get::<_, Option<bool>>(i) {
-                Some(b) => b.to_string(),
-                None => "NULL".to_string(),
-            }
+        &Type::BOOL => match row.get::<_, Option<bool>>(i) {
+            Some(b) => b.to_string(),
+            None => "NULL".to_string(),
         },
-        &Type::INT2 => {
-            match row.get::<_, Option<i16>>(i) {
-                Some(n) => n.to_string(),
-                None => "NULL".to_string(),
-            }
+        &Type::INT2 => match row.get::<_, Option<i16>>(i) {
+            Some(n) => n.to_string(),
+            None => "NULL".to_string(),
         },
-        &Type::INT4 => {
-            match row.get::<_, Option<i32>>(i) {
-                Some(n) => n.to_string(),
-                None => "NULL".to_string(),
-            }
+        &Type::INT4 => match row.get::<_, Option<i32>>(i) {
+            Some(n) => n.to_string(),
+            None => "NULL".to_string(),
         },
-        &Type::INT8 => {
-            match row.get::<_, Option<i64>>(i) {
-                Some(n) => n.to_string(),
-                None => "NULL".to_string(),
-            }
+        &Type::INT8 => match row.get::<_, Option<i64>>(i) {
+            Some(n) => n.to_string(),
+            None => "NULL".to_string(),
         },
-        &Type::FLOAT4 | &Type::FLOAT8 => {
-            match row.get::<_, Option<f64>>(i) {
-                Some(f) => f.to_string(),
-                None => "NULL".to_string(),
-            }
+        &Type::FLOAT4 | &Type::FLOAT8 => match row.get::<_, Option<f64>>(i) {
+            Some(f) => f.to_string(),
+            None => "NULL".to_string(),
         },
-        &Type::NUMERIC => {
-            match row.get::<_, Option<Decimal>>(i) {
-                Some(d) => d.to_string(),
-                None => "NULL".to_string(),
-            }
+        &Type::NUMERIC => match row.get::<_, Option<Decimal>>(i) {
+            Some(d) => d.to_string(),
+            None => "NULL".to_string(),
         },
-        &Type::UUID => {
-            match row.get::<_, Option<Uuid>>(i) {
-                Some(uuid) => uuid.to_string(),
-                None => "NULL".to_string(),
-            }
+        &Type::UUID => match row.get::<_, Option<Uuid>>(i) {
+            Some(uuid) => uuid.to_string(),
+            None => "NULL".to_string(),
         },
-        &Type::TIMESTAMP | &Type::TIMESTAMPTZ => {
-            match row.get::<_, Option<OffsetDateTime>>(i) {
-                Some(ts) => ts.to_string(),
-                None => "NULL".to_string(),
-            }
+        &Type::TIMESTAMP | &Type::TIMESTAMPTZ => match row.get::<_, Option<OffsetDateTime>>(i) {
+            Some(ts) => ts.to_string(),
+            None => "NULL".to_string(),
         },
-        &Type::JSON | &Type::JSONB => {
-            match row.get::<_, Option<serde_json::Value>>(i) {
-                Some(json) => json.to_string(),
-                None => "NULL".to_string(),
-            }
+        &Type::JSON | &Type::JSONB => match row.get::<_, Option<serde_json::Value>>(i) {
+            Some(json) => json.to_string(),
+            None => "NULL".to_string(),
         },
-        _ => {
-            match row.get::<_, Option<String>>(i) {
-                Some(s) => s,
-                None => "NULL".to_string(),
-            }
-        }
+        _ => match row.get::<_, Option<String>>(i) {
+            Some(s) => s,
+            None => "NULL".to_string(),
+        },
     }
 }
 
 #[tauri::command]
-async fn execute_query(connection_string: String, query: String) -> Result<QueryResult, String> {
+async fn execute_postgres_query(
+    connection_string: String,
+    query: String,
+) -> Result<QueryResult, String> {
     println!("Connecting to database...");
     let (client, connection) = tokio_postgres::connect(&connection_string, NoTls)
         .await
@@ -103,7 +86,7 @@ async fn execute_query(connection_string: String, query: String) -> Result<Query
         Ok(r) => {
             println!("Query successful, got {} rows", r.len());
             r
-        },
+        }
         Err(e) => {
             println!("Query error: {}", e);
             return Err(e.to_string());
@@ -119,7 +102,8 @@ async fn execute_query(connection_string: String, query: String) -> Result<Query
     }
 
     println!("Processing {} rows", rows.len());
-    let columns: Vec<String> = rows[0].columns()
+    let columns: Vec<String> = rows[0]
+        .columns()
         .iter()
         .map(|col| col.name().to_string())
         .collect();
@@ -150,8 +134,12 @@ async fn connect(url: String) -> Result<(), String> {
 }
 
 fn main() {
-  tauri::Builder::default()
-    .invoke_handler(tauri::generate_handler![connect, db::test_database_connection, execute_query])
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            connect,
+            db::test_database_connection,
+            execute_postgres_query
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }
