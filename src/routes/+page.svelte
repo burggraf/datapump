@@ -4,7 +4,9 @@
 	import { Settings } from "lucide-svelte";
 	import * as Card from "$lib/components/ui/card";
 	import { executePostgresQuery } from "$lib/services/postgres.svelte";
+	import * as Dialog from "$lib/components/ui/dialog";
 	let open = $state(false);
+	let dialogOpen = $state(false);
 	const testPostgres = async () => {
 		const { data, error } = await executePostgresQuery(
 			"postgres://postgres:postgres@localhost:5432/postgres",
@@ -37,7 +39,9 @@
 			<Card.Description>Card Description</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			<Button class="w-full" variant="outline">Select Input</Button>
+			<Button class="w-full" variant="outline" onclick={() => (dialogOpen = true)}
+				>Select Input</Button
+			>
 		</Card.Content>
 		<Card.Footer>
 			<p>Card Footer</p>
@@ -59,3 +63,11 @@
 		</Card.Footer>
 	</Card.Root>
 </div>
+
+<Dialog.Root bind:open={dialogOpen}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>Select Input</Dialog.Title>
+		</Dialog.Header>
+	</Dialog.Content>
+</Dialog.Root>
