@@ -4,7 +4,9 @@
     import DatabaseInputCard from '$lib/components/DatabaseInputCard.svelte';
     import type { FileType } from './types';
     import LoadFile from './LoadFile.svelte';
-    
+    import { Button } from '$lib/components/ui/button';
+    import { Dialog, DialogContent, DialogHeader, DialogTitle } from '$lib/components/ui/dialog';
+
         let inputPresets = $state<string[]>([
         ]);
         let selectedImportType = $state<'flat' | 'spreadsheet' | 'sqlite' | 'database' | null>(null);
@@ -17,6 +19,7 @@
     let selectedDatabaseType = $state<'postgres' | 'mysql' | 'sqlserver' | null>(null);
     let databaseConnectionString = $state<string | null>(null);
     let selectedFile = $state<File | null>(null);
+    let showModal = $state(false);
 
     async function importFlatFile() {
         if (!selectedFile) {
@@ -84,19 +87,26 @@
         alert('Database import initiated. Check the console for details.');
     }
 </script>
-
 <div class="w-1/2 p-4">
     <h2 class="text-2xl font-bold mb-4">Input</h2>
-    <Select on:valueChange={(e) => selectedImportType = e.detail}>
-        <SelectTrigger class="w-full" value={selectedImportType}>
-            {selectedImportType || 'Select Input Source'}
-        </SelectTrigger>
-        <SelectContent>
-            {#each inputPresets as preset}
-                <SelectItem value={preset}>{preset}</SelectItem>
-            {/each}
-            <SelectItem value="add_new">Add New Input Source</SelectItem>
-        </SelectContent>
-    </Select>
-
+    <div class="flex items-center space-x-2">
+        <Select on:valueChange={(e) => selectedImportType = e.detail}>
+            <SelectTrigger class="w-full" value={selectedImportType}>
+                {selectedImportType || 'Select Input Source'}
+            </SelectTrigger>
+            <SelectContent>
+                {#each inputPresets as preset}
+                    <SelectItem value={preset}>{preset}</SelectItem>
+                {/each}
+                <SelectItem value="add_new" onclick={() => showModal = true}>Add New Input Source</SelectItem>
+            </SelectContent>
+        </Select>
+    </div>
+    <Dialog open={showModal} onOpenChange={(open) => showModal = open}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Input Source</DialogTitle>
+            </DialogHeader>
+        </DialogContent>
+    </Dialog>
 </div>
