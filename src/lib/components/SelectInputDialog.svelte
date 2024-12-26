@@ -17,56 +17,28 @@
 		{
 			name: "Screen Share",
 			description: "Share your screen as an input source."
-		},
-		{
-			name: "Camera",
-			description: "Use your device's camera as an input source."
-		},
-		{
-			name: "Microphone",
-			description: "Use your device's microphone as an input source."
-		},
-		{
-			name: "Screen Share",
-			description: "Share your screen as an input source."
-		},
-		{
-			name: "Camera",
-			description: "Use your device's camera as an input source."
-		},
-		{
-			name: "Microphone",
-			description: "Use your device's microphone as an input source."
-		},
-		{
-			name: "Screen Share",
-			description: "Share your screen as an input source."
-		},
-		{
-			name: "Camera",
-			description: "Use your device's camera as an input source."
-		},
-		{
-			name: "Microphone",
-			description: "Use your device's microphone as an input source."
-		},
-		{
-			name: "Screen Share",
-			description: "Share your screen as an input source."
 		}
 	];
+	const handleClick = (source: any) => {
+		console.log("source:", source);
+		open = false;
+	};
 </script>
 
 <Dialog.Root {open} onOpenChange={(e) => (open = e)}>
 	<Dialog.Portal>
-		<Dialog.Header>
-			<Dialog.Title>Select Input</Dialog.Title>
-		</Dialog.Header>
 		<Dialog.Content class="max-h-[50vh] overflow-y-auto">
+			<Dialog.Header>
+				<Dialog.Title>Select Input</Dialog.Title>
+			</Dialog.Header>
 			<Table.Root class="w-full p-4">
 				<Table.Body>
 					{#each inputSources as source, i (i)}
-						<Table.Row>
+						<Table.Row
+							onclick={() => {
+								handleClick(source);
+							}}
+						>
 							<Table.Cell class="font-medium">
 								{source.name}
 								<div class="text-sm text-muted-foreground">
