@@ -13,6 +13,7 @@
 	}: WithElementRef<HTMLAttributes<HTMLDivElement>> = $props();
 
 	const emblaCtx = getEmblaContext("<Carousel.Content/>");
+	let emblaApi: any;
 </script>
 
 <!-- svelte-ignore event_directive_deprecated -->
@@ -23,11 +24,20 @@
 			container: "[data-embla-container]",
 			slides: "[data-embla-slide]",
 			...emblaCtx.options,
-			axis: emblaCtx.orientation === "horizontal" ? "x" : "y",
+			axis: emblaCtx.orientation === "horizontal" ? "x" : "y"
 		},
-		plugins: emblaCtx.plugins,
+		plugins: emblaCtx.plugins
 	}}
-	on:emblaInit={emblaCtx.onInit}
+	role="button"
+	tabindex="0"
+	onkeydown={() => {}}
+	onclick={(event) => {
+		const embla: any = emblaApi;
+		if (embla) {
+			const customEvent = new CustomEvent("emblaInit", { detail: embla });
+			emblaCtx.onInit(customEvent);
+		}
+	}}
 >
 	<div
 		bind:this={ref}
