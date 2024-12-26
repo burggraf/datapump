@@ -90,7 +90,7 @@
 <div class="w-1/2 p-4">
     <h2 class="text-2xl font-bold mb-4">Input</h2>
     <div class="flex items-center space-x-2">
-        <Select on:valueChange={(e) => selectedImportType = e.detail}>
+        <Select on:valueChange={(e: any) => selectedImportType = e.detail}>
             <SelectTrigger class="w-full" value={selectedImportType}>
                 {selectedImportType || 'Select Input Source'}
             </SelectTrigger>
