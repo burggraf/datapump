@@ -37,7 +37,7 @@
 			<Card.Description>Card Description</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			<p>Card Content</p>
+			<Button class="w-full" variant="outline">Select Input</Button>
 		</Card.Content>
 		<Card.Footer>
 			<p>Card Footer</p>
