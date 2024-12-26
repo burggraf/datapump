@@ -1,9 +1,12 @@
 <script lang="ts">
 	import * as Dialog from "$lib/components/ui/dialog";
-	let { open = $bindable() } = $props();
+	let { open = $bindable(false) } = $props();
+	$effect(() => {
+		console.log("SelectInputDialog open:", open);
+	});
 </script>
 
-<Dialog.Root {open}>
+<Dialog.Root {open} onOpenChange={(e) => (open = e.detail)}>
 	<Dialog.Portal>
 		<Dialog.Content>
 			<Dialog.Header>
