@@ -15,6 +15,7 @@
 		console.log("toggleDialog called, dialogOpen", dialogOpen);
 		dialogOpen = !dialogOpen;
 	}
+	let editingSourceIndex = $state(-1);
 	let sourceType = $state<"File" | "Remote Database">("File");
 	let sourcePath = $state("");
 	let sourceConnection = $state({});
@@ -75,17 +76,34 @@
 	}
 
 	function addSource() {
-		let newSource: Source = {
-			title: sourceTitle,
-			description: sourceDescription,
-			type: sourceType,
-			path: sourcePath,
-			connection: sourceConnection,
-			selected: sources.length === 0 ? true : false
-		};
-		sources = [...sources, newSource];
-		if (sources.length === 1) {
-			selectedSource = newSource;
+		if (editingSourceIndex > -1) {
+			sources = sources.map((source, index) => {
+				if (index === editingSourceIndex) {
+					return {
+						title: sourceTitle,
+						description: sourceDescription,
+						type: sourceType,
+						path: sourcePath,
+						connection: sourceConnection,
+						selected: source.selected
+					};
+				}
+				return source;
+			});
+			editingSourceIndex = -1;
+		} else {
+			let newSource: Source = {
+				title: sourceTitle,
+				description: sourceDescription,
+				type: sourceType,
+				path: sourcePath,
+				connection: sourceConnection,
+				selected: sources.length === 0 ? true : false
+			};
+			sources = [...sources, newSource];
+			if (sources.length === 1) {
+				selectedSource = newSource;
+			}
 		}
 		console.log("addSource called");
 		dialogOpen = false;
@@ -93,6 +111,17 @@
 		sourceDescription = "";
 		sourcePath = "";
 		sourceConnection = {};
+	}
+
+	function editSource(source: Source) {
+		console.log("editSource called", source);
+		editingSourceIndex = sources.indexOf(source);
+		sourceType = source.type;
+		sourcePath = source.path;
+		sourceConnection = source.connection;
+		sourceTitle = source.title;
+		sourceDescription = source.description;
+		dialogOpen = true;
 	}
 
 	function selectSource(source: Source) {
@@ -148,6 +177,23 @@
 								{#if source.selected}
 									<span>✓</span>
 								{/if}
+								<Button variant="ghost" size="icon" onclick={() => editSource(source)}>
+									<svg
+										xmlns="http://www.w3.org/2000/svg"
+										width="24"
+										height="24"
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										class="lucide lucide-edit"
+										><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path
+											d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"
+										/></svg
+									>
+								</Button>
 							</li>
 						{/each}
 					</ul>
@@ -218,6 +264,7 @@
 							bind:value={sourceDescription}
 						/>
 					</label>
+					<input type="hidden" bind:value={editingSourceIndex} />
 				</div>
 				<div class="items-center px-4 py-3">
 					<Button
