@@ -4,6 +4,7 @@
 	import { Button } from "$lib/components/ui/button";
 	import { Plus, X } from "lucide-svelte";
 	let { open = $bindable(false) } = $props();
+	let showNewInputDiv = $state(false);
 	$effect(() => {
 		console.log("SelectInputDialog open:", open);
 	});
@@ -91,7 +92,13 @@
 							</td>
 							<td class="w-4/6 text-center">Select Input</td>
 							<td class="w-1/6 text-right">
-								<Button variant="ghost" class="p-2">
+								<Button
+									variant="ghost"
+									class="p-2"
+									onclick={() => {
+										showNewInputDiv = true;
+									}}
+								>
 									<Plus />
 								</Button>
 							</td>
@@ -99,6 +106,13 @@
 					</tbody>
 				</table>
 			</Dialog.Header>
+			{#if showNewInputDiv}
+				<div
+					class="fixed left-0 top-10 z-10 flex h-full w-full items-center justify-center bg-background"
+				>
+					<div class="text-xl">create new input source</div>
+				</div>
+			{/if}
 			<Table.Root class="w-full">
 				<Table.Body>
 					{#each inputSources as source, i (i)}
