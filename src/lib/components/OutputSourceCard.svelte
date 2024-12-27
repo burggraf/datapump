@@ -39,12 +39,18 @@
 	}
 
 	async function testConnectionString(connectionString: string) {
-		const { data, error } = await executePostgresQuery(connectionString, "SELECT 1");
-		if (error) {
-			toast.error(JSON.stringify(error));
-			return;
-		} else {
-			toast.success("Connection successful");
+		switch (ocsType) {
+			case "postgres":
+				const { data, error } = await executePostgresQuery(connectionString, "SELECT 1");
+				if (error) {
+					toast.error(JSON.stringify(error));
+					return;
+				} else {
+					toast.success("Connection successful");
+				}
+				break;
+			default:
+				toast.error("Unsupported connection type");
 		}
 	}
 </script>
