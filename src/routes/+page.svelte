@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Header from "$lib/components/Header.svelte";
+	import MigrationCard from "$lib/components/MigrationCard.svelte";
 	import InputSourceCard from "$lib/components/InputSourceCard.svelte";
 	import OutputSourceCard from "$lib/components/OutputSourceCard.svelte";
 
@@ -87,6 +88,8 @@
 
 <Header />
 
+import MigrationCard from "$lib/components/MigrationCard.svelte";
+
 <div class="flex gap-4 p-4">
 	<InputSourceCard bind:sourcePath bind:schema bind:fileError bind:selectedSource />
 
@@ -99,4 +102,5 @@
 		ocsPort={ocsPort()}
 		ocsDatabase={ocsDatabase()}
 	/>
+	<MigrationCard />
 </div>
