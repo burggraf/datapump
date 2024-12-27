@@ -10,22 +10,38 @@
 		return match ? match[1] : "";
 	});
 	let ocsUser = $derived(() => {
+		if (ocsType() === "sqlite") {
+			return "";
+		}
 		const match = outputConnectionString.match(/:\/\/([^:]+):([^@]+)@/);
 		return match ? match[1] : "";
 	});
 	let ocsPassword = $derived(() => {
+		if (ocsType() === "sqlite") {
+			return "";
+		}
 		const match = outputConnectionString.match(/:\/\/([^:]+):([^@]+)@/);
 		return match ? match[2] : "";
 	});
 	let ocsHost = $derived(() => {
+		if (ocsType() === "sqlite") {
+			return "";
+		}
 		const match = outputConnectionString.match(/@([^:]+):/);
 		return match ? match[1] : "";
 	});
 	let ocsPort = $derived(() => {
+		if (ocsType() === "sqlite") {
+			return "";
+		}
 		const match = outputConnectionString.match(/@.+:(\d+)\//);
 		return match ? match[1] : "";
 	});
 	let ocsDatabase = $derived(() => {
+		if (ocsType() === "sqlite") {
+			const match = outputConnectionString.match(/^sqlite:\/\/(.+)$/);
+			return match ? match[1] : "";
+		}
 		const match = outputConnectionString.match(/\/([^/]+)$/);
 		return match ? match[1] : "";
 	});

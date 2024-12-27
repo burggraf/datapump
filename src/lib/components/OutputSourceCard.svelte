@@ -41,12 +41,37 @@
 	async function testConnectionString(connectionString: string) {
 		switch (ocsType) {
 			case "postgres":
-				const { data, error } = await executePostgresQuery(connectionString, "SELECT 1");
-				if (error) {
-					toast.error(JSON.stringify(error));
+				const { data: pgData, error: pgError } = await executePostgresQuery(
+					connectionString,
+					"SELECT version()"
+				);
+				if (pgError) {
+					toast.error(JSON.stringify(pgError));
 					return;
 				} else {
-					toast.success("Connection successful");
+					if (pgData && pgData.rows && pgData.rows[0] && pgData.rows[0][0]) {
+						toast.success("Connection successful:" + JSON.stringify(pgData.rows[0][0]));
+					} else {
+						toast.error("Connection successful:" + JSON.stringify(pgData));
+					}
+				}
+				break;
+			case "sqlite":
+				const { data: sqliteData, error: sqliteError } = await executeSqliteQuery(
+					ocsDatabase,
+					"SELECT sqlite_version()"
+				);
+				if (sqliteError) {
+					toast.error(JSON.stringify(sqliteError));
+					return;
+				} else {
+					if (sqliteData && sqliteData.rows && sqliteData.rows[0] && sqliteData.rows[0][0]) {
+						toast.success(
+							"Connection successful:" + " version " + JSON.stringify(sqliteData.rows[0][0])
+						);
+					} else {
+						toast.success("Connection successful:" + JSON.stringify(sqliteData));
+					}
 				}
 				break;
 			default:
