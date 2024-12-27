@@ -98,28 +98,11 @@
 				oninput={(event) => handleCredentialsChange((event.target as HTMLInputElement).value)}
 			/>
 		</div>
-		<p>Card Content</p>
 		<Button
 			disabled={isConnectionStringEmpty}
 			onclick={() => {
 				testConnectionString(outputConnectionString);
 			}}>Test connection string</Button
-		>
-		<Button onclick={testPostgres}>test postgres query</Button>
-		<Button
-			onclick={async () => {
-				const { data, error } = await executeSqliteQuery("test.db", "select 1");
-				if (error) {
-					toast.error(error.message);
-					return;
-				} else {
-					toast.success("Sqlite query successful");
-					const outputElement = document.getElementById("output");
-					if (outputElement) {
-						outputElement.innerText = JSON.stringify(data, null, 2);
-					}
-				}
-			}}>test sqlite query</Button
 		>
 		<pre id="output"></pre>
 	</Card.Content>
