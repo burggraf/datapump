@@ -20,6 +20,16 @@
 	let sourceConnection = $state({});
 	let sourceTitle = $state("");
 	let sourceDescription = $state("");
+	$effect.pre(() => {
+		const storedSourcePath = localStorage.getItem("sourcePath");
+		if (storedSourcePath) {
+			sourcePath = storedSourcePath;
+		}
+		const storedSourceConnection = localStorage.getItem("sourceConnection");
+		if (storedSourceConnection) {
+			sourceConnection = JSON.parse(storedSourceConnection);
+		}
+	});
 	let schema = $state<{ name: string; type: string }[]>([]);
 	let fileError = $state("");
 	interface Source {
@@ -41,6 +51,11 @@
 		} else {
 			sources = [];
 		}
+	});
+
+	$effect(() => {
+		localStorage.setItem("sourcePath", sourcePath);
+		localStorage.setItem("sourceConnection", JSON.stringify(sourceConnection));
 	});
 
 	$effect(() => {
@@ -74,7 +89,7 @@
 	}
 
 	function handleCredentialsChange(newCredentials: any) {
-		sourceConnection = { ...newCredentials };
+		sourceConnection = newCredentials;
 	}
 
 	function addSource() {
@@ -227,6 +242,8 @@
 					type="text"
 					id="connectionString"
 					class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+					value={sourceConnection}
+					oninput={(event) => handleCredentialsChange((event.target as HTMLInputElement).value)}
 				/>
 			</div>
 			<p>Card Content</p>
