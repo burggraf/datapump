@@ -17,9 +17,10 @@
 	let editingSourceIndex = $state(-1);
 	let sourceType = $state<"File" | "Remote Database">("File");
 	let sourcePath = $state("");
-	let sourceConnection = $state({});
+	let sourceConnection = $state("");
 	let sourceTitle = $state("");
 	let sourceDescription = $state("");
+	let isConnectionStringEmpty = $derived(sourceConnection === "");
 	$effect.pre(() => {
 		const storedSourcePath = localStorage.getItem("sourcePath");
 		if (storedSourcePath) {
@@ -91,59 +92,14 @@
 	function handleCredentialsChange(newCredentials: any) {
 		sourceConnection = newCredentials;
 	}
-
-	function addSource() {
-		if (editingSourceIndex > -1) {
-			sources = sources.map((source, index) => {
-				if (index === editingSourceIndex) {
-					return {
-						title: sourceTitle,
-						description: sourceDescription,
-						type: sourceType,
-						path: sourcePath,
-						connection: sourceConnection,
-						selected: source.selected
-					};
-				}
-				return source;
-			});
-			editingSourceIndex = -1;
+	async function testConnectionString(connectionString: string) {
+		const { data, error } = await executePostgresQuery(connectionString, "SELECT 1");
+		if (error) {
+			toast.error(JSON.stringify(error));
+			return;
 		} else {
-			let newSource: Source = {
-				title: sourceTitle,
-				description: sourceDescription,
-				type: sourceType,
-				path: sourcePath,
-				connection: sourceConnection,
-				selected: sources.length === 0 ? true : false
-			};
-			sources = [...sources, newSource];
-			if (sources.length === 1) {
-				selectedSource = newSource;
-			}
+			toast.success("Connection successful");
 		}
-		console.log("addSource called");
-		dialogOpen = false;
-		sourceTitle = "";
-		sourceDescription = "";
-		sourcePath = "";
-		sourceConnection = {};
-	}
-
-	function editSource(source: Source) {
-		console.log("editSource called", source);
-		editingSourceIndex = sources.indexOf(source);
-		sourceType = source.type;
-		sourcePath = source.path;
-		sourceConnection = source.connection;
-		sourceTitle = source.title;
-		sourceDescription = source.description;
-		dialogOpen = true;
-	}
-
-	function selectSource(source: Source) {
-		sources = sources.map((s) => ({ ...s, selected: s === source ? true : false }));
-		selectedSource = source;
 	}
 </script>
 
@@ -247,6 +203,12 @@
 				/>
 			</div>
 			<p>Card Content</p>
+			<Button
+				disabled={isConnectionStringEmpty}
+				onclick={() => {
+					testConnectionString(sourceConnection);
+				}}>Test connection string</Button
+			>
 			<Button onclick={testPostgres}>test postgres query</Button>
 			<Button
 				onclick={async () => {
