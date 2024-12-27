@@ -90,7 +90,7 @@
 
 <div class="flex gap-4 p-4">
 	<div style="width: 50%;">
-		<InputSourceCard class:mb-4 bind:sourcePath bind:schema bind:fileError bind:selectedSource />
+		<InputSourceCard bind:sourcePath bind:schema bind:fileError bind:selectedSource />
 		<OutputSourceCard
 			bind:outputConnectionString
 			ocsType={ocsType()}

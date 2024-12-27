@@ -3,7 +3,7 @@
 	import * as Card from "$lib/components/ui/card";
 </script>
 
-<Card.Root>
+<Card.Root class="h-full">
 	<Card.Header>
 		<Card.Title>Migration</Card.Title>
 		<Card.Description>Migration status</Card.Description>

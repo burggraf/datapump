@@ -35,7 +35,7 @@
 		<Card.Description>Select or create an input source</Card.Description>
 	</Card.Header>
 	<Card.Content>
-		<div class="mt-4">
+		<div class="mt-0">
 			<input
 				type="file"
 				id="fileInput"
@@ -62,25 +62,21 @@
 					}
 				}}
 			/>
-			<Button variant="outline" onclick={() => document.getElementById("fileInput")?.click()}
-				>Choose File</Button
-			>
-			<div class="mt-2">
-				<label for="filePath" class="block text-sm font-medium text-gray-700">File Path</label>
-				<Input
-					type="text"
-					id="filePath"
-					value={sourcePath}
-					class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-				/>
+			<label for="filePath" class="block text-sm font-medium text-gray-700">File Path</label>
+			<div class="flex items-baseline">
+				<Button variant="outline" onclick={() => document.getElementById("fileInput")?.click()}
+					>Choose File</Button
+				>
+				<div class="ml-2 flex-1">
+					<Input
+						type="text"
+						id="filePath"
+						value={sourcePath}
+						class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+					/>
+				</div>
 			</div>
 		</div>
-		{#if selectedSource}
-			<div class="mt-4">
-				<p class="font-bold">{selectedSource.title}</p>
-				<p class="text-sm text-gray-500">{selectedSource.description}</p>
-			</div>
-		{/if}
 	</Card.Content>
 	<Card.Footer class="flex flex-col gap-2">
 		{#if fileError}
