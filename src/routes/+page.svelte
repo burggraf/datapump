@@ -6,6 +6,7 @@
 	import * as Card from "$lib/components/ui/card";
 	import { executePostgresQuery } from "$lib/services/postgres.svelte";
 	import { executeSqliteQuery } from "$lib/services/sqlite.svelte";
+	import { invoke } from "@tauri-apps/api/core";
 
 	let dialogOpen = $state(false);
 	function toggleDialog() {
@@ -64,8 +65,9 @@
 		sourceType = event;
 	}
 
-	function handleFileChange(newFilePath: string) {
-		sourcePath = newFilePath;
+	async function handleFileChange(newFilePath: string) {
+		const realPath = await invoke("get_real_path", { filePath: newFilePath });
+		sourcePath = realPath as string;
 	}
 
 	function handleCredentialsChange(newCredentials: any) {
@@ -147,7 +149,8 @@
 					id="fileInput"
 					style="display: none"
 					onchange={(event) => {
-						const file = (event.target as HTMLInputElement).files?.[0];
+						const fileInput = event.target as HTMLInputElement;
+						const file = fileInput.files?.[0];
 						if (file) {
 							handleFileChange(file.name);
 						}
@@ -162,7 +165,6 @@
 						type="text"
 						id="filePath"
 						value={sourcePath}
-						oninput={(event) => handleFileChange((event.target as HTMLInputElement).value)}
 						class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 					/>
 				</div>

@@ -6,6 +6,7 @@ mod db;
 use db::connect_db;
 use rust_decimal::Decimal;
 use serde::Serialize;
+use std::path;
 use time::OffsetDateTime;
 use tokio_postgres::types::Type;
 use tokio_postgres::{NoTls, Row};
@@ -165,13 +166,20 @@ async fn connect(url: String) -> Result<(), String> {
     }
 }
 
+#[tauri::command]
+async fn get_real_path(file_path: String) -> Result<String, String> {
+    let absolute_path = path::absolute(file_path).map_err(|e| e.to_string())?;
+    Ok(absolute_path.to_string_lossy().to_string())
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             connect,
             db::test_database_connection,
             execute_postgres_query,
-            execute_sqlite_query
+            execute_sqlite_query,
+            get_real_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

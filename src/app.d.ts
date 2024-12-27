@@ -1,15 +1,3 @@
-// See https://svelte.dev/docs/kit/types#app.d.ts
-// for information about these interfaces
-declare global {
-  namespace App {
-          // interface Error {}
-          // interface Locals {}
-          // interface PageData {}
-          // interface PageState {}
-          // interface Platform {}
-  }
+declare module '@tauri-apps/api/tauri' {
+  export function invoke(cmd: string, args?: any): Promise<any>;
 }
-interface Window {
-  __TAURI__: any;
-}
-  
