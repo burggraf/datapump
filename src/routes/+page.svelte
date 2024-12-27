@@ -4,7 +4,7 @@
 	import OutputSourceCard from "$lib/components/OutputSourceCard.svelte";
 
 	let sourcePath = $state("");
-	let sourceConnection = $state("");
+	let outputConnectionString = $state("");
 	let schema = $state<{ name: string; type: string }[]>([]);
 	let fileError = $state("");
 
@@ -25,9 +25,9 @@
 		if (storedSourcePath) {
 			sourcePath = storedSourcePath;
 		}
-		const storedSourceConnection = localStorage.getItem("sourceConnection");
-		if (storedSourceConnection) {
-			sourceConnection = JSON.parse(storedSourceConnection);
+		const storedOutputConnectionString = localStorage.getItem("sourceConnection");
+		if (storedOutputConnectionString) {
+			outputConnectionString = JSON.parse(storedOutputConnectionString);
 		}
 		const storedSources = localStorage.getItem("inputSources");
 		if (storedSources) {
@@ -39,7 +39,7 @@
 
 	$effect(() => {
 		localStorage.setItem("sourcePath", sourcePath);
-		localStorage.setItem("sourceConnection", JSON.stringify(sourceConnection));
+		localStorage.setItem("outputConnectionString", JSON.stringify(outputConnectionString));
 		localStorage.setItem("inputSources", JSON.stringify(sources));
 	});
 </script>
@@ -49,5 +49,5 @@
 <div class="flex gap-4 p-4">
 	<InputSourceCard bind:sourcePath bind:schema bind:fileError bind:selectedSource />
 
-	<OutputSourceCard bind:sourceConnection />
+	<OutputSourceCard bind:outputConnectionString />
 </div>

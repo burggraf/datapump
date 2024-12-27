@@ -6,8 +6,8 @@
 	import { executePostgresQuery } from "$lib/services/postgres.svelte";
 	import { executeSqliteQuery } from "$lib/services/sqlite.svelte";
 
-	let { sourceConnection = $bindable("") } = $props();
-	let isConnectionStringEmpty = $derived(sourceConnection === "");
+	let { outputConnectionString = $bindable("") } = $props();
+	let isConnectionStringEmpty = $derived(outputConnectionString === "");
 
 	const testPostgres = async () => {
 		const { data, error } = await executePostgresQuery(
@@ -27,7 +27,7 @@
 	};
 
 	function handleCredentialsChange(newCredentials: any) {
-		sourceConnection = newCredentials;
+		outputConnectionString = newCredentials;
 	}
 
 	async function testConnectionString(connectionString: string) {
@@ -55,7 +55,7 @@
 				type="text"
 				id="connectionString"
 				class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-				value={sourceConnection}
+				value={outputConnectionString}
 				oninput={(event) => handleCredentialsChange((event.target as HTMLInputElement).value)}
 			/>
 		</div>
@@ -63,7 +63,7 @@
 		<Button
 			disabled={isConnectionStringEmpty}
 			onclick={() => {
-				testConnectionString(sourceConnection);
+				testConnectionString(outputConnectionString);
 			}}>Test connection string</Button
 		>
 		<Button onclick={testPostgres}>test postgres query</Button>
