@@ -10,16 +10,9 @@
 	import { analyzeSchema } from "$lib/services/flat.svelte";
 
 	let dialogOpen = $state(false);
-	function toggleDialog() {
-		console.log("toggleDialog called, dialogOpen", dialogOpen);
-		dialogOpen = !dialogOpen;
-	}
-	let editingSourceIndex = $state(-1);
 	let sourceType = $state<"File" | "Remote Database">("File");
 	let sourcePath = $state("");
 	let sourceConnection = $state("");
-	let sourceTitle = $state("");
-	let sourceDescription = $state("");
 	let isConnectionStringEmpty = $derived(sourceConnection === "");
 	$effect.pre(() => {
 		const storedSourcePath = localStorage.getItem("sourcePath");
