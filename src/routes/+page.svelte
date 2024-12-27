@@ -7,6 +7,7 @@
 	import { executePostgresQuery } from "$lib/services/postgres.svelte";
 	import { executeSqliteQuery } from "$lib/services/sqlite.svelte";
 	import { invoke } from "@tauri-apps/api/core";
+	import { analyzeSchema } from "$lib/services/flat.svelte";
 
 	let dialogOpen = $state(false);
 	function toggleDialog() {
@@ -19,6 +20,8 @@
 	let sourceConnection = $state({});
 	let sourceTitle = $state("");
 	let sourceDescription = $state("");
+	let schema = $state<{ name: string; type: string }[]>([]);
+	let fileError = $state("");
 	interface Source {
 		title: string;
 		description: string;
@@ -148,11 +151,25 @@
 					type="file"
 					id="fileInput"
 					style="display: none"
-					onchange={(event) => {
+					onchange={async (event) => {
 						const fileInput = event.target as HTMLInputElement;
 						const file = fileInput.files?.[0];
 						if (file) {
-							handleFileChange(file.name);
+							// Validate file type
+							if (!["text/csv", "text/tab-separated-values"].includes(file.type)) {
+								fileError = "Invalid file type. Please upload a CSV or TSV file.";
+								return;
+							}
+
+							// Analyze schema
+							try {
+								schema = await analyzeSchema(file);
+								fileError = "";
+								handleFileChange(file.name);
+							} catch (error) {
+								fileError = "Failed to parse file. Please check the format.";
+								schema = [];
+							}
 						}
 					}}
 				/>
@@ -176,8 +193,23 @@
 				</div>
 			{/if}
 		</Card.Content>
-		<Card.Footer>
-			<p>Card Footer</p>
+		<Card.Footer class="flex flex-col gap-2">
+			{#if fileError}
+				<p class="text-sm text-red-500">{fileError}</p>
+			{/if}
+			{#if schema.length > 0}
+				<div class="text-sm">
+					<p class="mb-1 font-medium">Detected Schema:</p>
+					<ul class="space-y-1">
+						{#each schema as field}
+							<li class="flex gap-2">
+								<span class="font-medium">{field.name}</span>
+								<span class="text-gray-500">({field.type})</span>
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
 		</Card.Footer>
 	</Card.Root>
 
