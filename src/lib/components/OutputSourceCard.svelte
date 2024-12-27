@@ -6,7 +6,15 @@
 	import { executePostgresQuery } from "$lib/services/postgres.svelte";
 	import { executeSqliteQuery } from "$lib/services/sqlite.svelte";
 
-	let { outputConnectionString = $bindable("") } = $props();
+	let {
+		outputConnectionString = $bindable(""),
+		ocsType = $bindable(""),
+		ocsUser = $bindable(""),
+		ocsPassword = $bindable(""),
+		ocsHost = $bindable(""),
+		ocsPort = $bindable(""),
+		ocsDatabase = $bindable("")
+	} = $props();
 	let isConnectionStringEmpty = $derived(outputConnectionString === "");
 
 	const testPostgres = async () => {
@@ -85,6 +93,10 @@
 		<pre id="output"></pre>
 	</Card.Content>
 	<Card.Footer>
-		<p>Card Footer</p>
+		<p>
+			Type: {ocsType}<br /> User: {ocsUser}<br /> Password: {ocsPassword ? "*********" : ""} <br />
+			Host: {ocsHost}<br /> Port: {ocsPort}<br />
+			Database: {ocsDatabase}
+		</p>
 	</Card.Footer>
 </Card.Root>

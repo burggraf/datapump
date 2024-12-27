@@ -5,6 +5,31 @@
 
 	let sourcePath = $state("");
 	let outputConnectionString = $state("");
+	let ocsType = $derived(() => {
+		const match = outputConnectionString.match(/^([^:]+):\/\//);
+		return match ? match[1] : "";
+	});
+	let ocsUser = $derived(() => {
+		const match = outputConnectionString.match(/:\/\/([^:]+):([^@]+)@/);
+		return match ? match[1] : "";
+	});
+	let ocsPassword = $derived(() => {
+		const match = outputConnectionString.match(/:\/\/([^:]+):([^@]+)@/);
+		return match ? match[2] : "";
+	});
+	let ocsHost = $derived(() => {
+		const match = outputConnectionString.match(/@([^:]+):/);
+		return match ? match[1] : "";
+	});
+	let ocsPort = $derived(() => {
+		const match = outputConnectionString.match(/@.+:(\d+)\//);
+		return match ? match[1] : "";
+	});
+	let ocsDatabase = $derived(() => {
+		const match = outputConnectionString.match(/\/([^/]+)$/);
+		return match ? match[1] : "";
+	});
+
 	let schema = $state<{ name: string; type: string }[]>([]);
 	let fileError = $state("");
 
@@ -49,5 +74,13 @@
 <div class="flex gap-4 p-4">
 	<InputSourceCard bind:sourcePath bind:schema bind:fileError bind:selectedSource />
 
-	<OutputSourceCard bind:outputConnectionString />
+	<OutputSourceCard
+		bind:outputConnectionString
+		ocsType={ocsType()}
+		ocsUser={ocsUser()}
+		ocsPassword={ocsPassword()}
+		ocsHost={ocsHost()}
+		ocsPort={ocsPort()}
+		ocsDatabase={ocsDatabase()}
+	/>
 </div>
