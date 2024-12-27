@@ -88,19 +88,20 @@
 
 <Header />
 
-import MigrationCard from "$lib/components/MigrationCard.svelte";
-
 <div class="flex gap-4 p-4">
-	<InputSourceCard bind:sourcePath bind:schema bind:fileError bind:selectedSource />
-
-	<OutputSourceCard
-		bind:outputConnectionString
-		ocsType={ocsType()}
-		ocsUser={ocsUser()}
-		ocsPassword={ocsPassword()}
-		ocsHost={ocsHost()}
-		ocsPort={ocsPort()}
-		ocsDatabase={ocsDatabase()}
-	/>
-	<MigrationCard />
+	<div style="width: 50%;">
+		<InputSourceCard class:mb-4 bind:sourcePath bind:schema bind:fileError bind:selectedSource />
+		<OutputSourceCard
+			bind:outputConnectionString
+			ocsType={ocsType()}
+			ocsUser={ocsUser()}
+			ocsPassword={ocsPassword()}
+			ocsHost={ocsHost()}
+			ocsPort={ocsPort()}
+			ocsDatabase={ocsDatabase()}
+		/>
+	</div>
+	<div style="width: 50%;">
+		<MigrationCard />
+	</div>
 </div>

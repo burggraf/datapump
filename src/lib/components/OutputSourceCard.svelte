@@ -80,7 +80,7 @@
 	}
 </script>
 
-<Card.Root class="w-1/2">
+<Card.Root>
 	<Card.Header>
 		<Card.Title>Output</Card.Title>
 		<Card.Description>Card Description</Card.Description>

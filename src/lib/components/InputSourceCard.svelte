@@ -29,7 +29,7 @@
 	});
 </script>
 
-<Card.Root class="w-1/2">
+<Card.Root class="mb-4">
 	<Card.Header>
 		<Card.Title>Input</Card.Title>
 		<Card.Description>Select or create an input source</Card.Description>
