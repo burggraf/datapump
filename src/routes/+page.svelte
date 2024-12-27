@@ -219,6 +219,16 @@
 			<Card.Description>Card Description</Card.Description>
 		</Card.Header>
 		<Card.Content>
+			<div class="mb-4">
+				<label for="connectionString" class="block text-sm font-medium text-gray-700"
+					>Connection String</label
+				>
+				<Input
+					type="text"
+					id="connectionString"
+					class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+				/>
+			</div>
 			<p>Card Content</p>
 			<Button onclick={testPostgres}>test postgres query</Button>
 			<Button
