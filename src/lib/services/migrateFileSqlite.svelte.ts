@@ -54,6 +54,8 @@ export function migrate(file: File, outputConnectionString: string) {
     });
 }
 
+let total_lines_processed = 0;
+let start_time = (+new Date());
 
 export const parseFile = async (file: File, batchSize: number, tableName: string, columns: string[], dbPath: string) => {
     console.log('Parsing file:');
@@ -74,6 +76,11 @@ export const parseFile = async (file: File, batchSize: number, tableName: string
                     // console.log(insertStatements)
                     reject(batchError);
                 }
+                console.log('Total lines processed:', total_lines_processed);
+                const elapsed_time = (((+new Date()) - start_time) / 1000);
+                console.log('Elapsed time:', elapsed_time);
+                const lines_per_second = total_lines_processed / elapsed_time;
+                console.log('Lines per second:', lines_per_second);
                 parser.resume();
             },
             complete: () => {
@@ -102,5 +109,6 @@ function generateInsertStatement(batch: any[], tableName: string, columns: strin
         .map(row =>
             `(${row.map((value: string | number) => typeof value === 'object' ? 'null' : typeof value === 'string' ? `'${value.replace(/'/g, "''")}'` : value).join(', ')})`
         ).join(',\n');
+    total_lines_processed += batch.length;
     return `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES\n${values};`;
 }
