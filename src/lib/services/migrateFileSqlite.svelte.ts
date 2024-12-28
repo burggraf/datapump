@@ -85,10 +85,10 @@ function generateInsertStatement(batch: any[], tableName: string, columns: strin
     // console.log('Generating insert statement:');
     // console.log('tableName:', tableName);
     // console.log('columns:', columns);
-    const values = batch.map(row =>
-        `(${row.map(value => typeof value === 'string' ? `'${value.replace(/'/g, "''")}'` : value).join(', ')})`
-    ).join(',\n');
+    const values = batch
+        .filter(row => row.length === columns.length)
+        .map(row =>
+            `(${row.map((value: string | number) => typeof value === 'string' ? `'${value.replace(/'/g, "''")}'` : value).join(', ')})`
+        ).join(',\n');
     return `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES\n${values};`;
 }
-
-
