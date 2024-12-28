@@ -1,5 +1,6 @@
-import { analyzeSchema, parseFile } from './flat.svelte';
+import { analyzeSchema } from './flat.svelte';
 import { executeSqliteQuery } from './sqlite.svelte';
+import Papa from 'papaparse';
 
 export function migrate(file: File, outputConnectionString: string) {
     return new Promise<void>(async (resolve, reject) => {
@@ -29,7 +30,7 @@ export function migrate(file: File, outputConnectionString: string) {
             const insertQuery = `INSERT INTO ${tableName} VALUES (${schema.map(() => '?').join(', ')})`;
             console.log('Inserting data:');
             console.log(insertQuery);
-            const result = await parseFile(file, 3);
+            const result = await parseFile(file, 10000000);
             console.log('Parsed data:');
             console.log(result);
             /*
@@ -45,3 +46,34 @@ export function migrate(file: File, outputConnectionString: string) {
         }
     });
 }
+
+
+export const parseFile = async (file: File, batchSize: number) => {
+    console.log('Parsing file:');
+    console.log('batchSize:', batchSize);
+    return new Promise<void>((resolve, reject) => {
+        Papa.parse(file, {
+            header: false,
+            dynamicTyping: true,
+            chunkSize: batchSize,
+            /*
+            step: (results) => {
+                console.log('Parsed batch:');
+                console.log(results.data);
+            },
+            */
+            chunk: (chunk) => {
+                console.log('got a chunk')
+                console.log(chunk.data.length);
+                console.log(chunk.data[0]);
+            },
+            complete: () => {
+                console.log('Parsing complete');
+                resolve();
+            },
+            error: (error) => {
+                reject(error);
+            }
+        });
+    });
+};

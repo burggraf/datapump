@@ -76,14 +76,3 @@ export const analyzeSchema = async (file: File): Promise<{ name: string; type: s
   });
 };
 
-export const parseFile = async (file: File, batchSize: number) => {
-  const fileContent = await readFirstLines(file, batchSize);
-  Papa.parse(fileContent, {
-    complete: (results) => {
-      console.log('Parsed first 5 lines:', results);
-    },
-    error: (error: Error) => {
-      console.error('Error parsing file:', error);
-    },
-  });
-};
