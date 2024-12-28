@@ -7,8 +7,8 @@ export function migrate(file: File, outputConnectionString: string) {
         try {
             let tableName = file.name.replace(/\.[^/.]+$/, '');
             const schema = await analyzeSchema(file);
-            console.log('Schema:');
-            console.log(schema);
+            // console.log('Schema:');
+            // console.log(schema);
             for (let i = 0; i < schema.length; i++) {
                 console.log(schema[i]);
             }
@@ -16,10 +16,10 @@ export function migrate(file: File, outputConnectionString: string) {
             const dbPath = outputConnectionString.replace('sqlite://', '');
 
             let sql = `CREATE TABLE IF NOT EXISTS ${tableName} (${schema.map((field) => `${field.name} ${field.type}`).join(', ')})`;
-            console.log('Creating table:');
-            console.log(sql);
-            console.log("Output connection string:");
-            console.log(outputConnectionString);
+            // console.log('Creating table:');
+            // console.log(sql);
+            // console.log("Output connection string:");
+            // console.log(outputConnectionString);
             const createTableQuery = sql;
             const { error: createTableError } = await executeSqliteQuery(dbPath, createTableQuery);
             if (createTableError) {
@@ -27,10 +27,11 @@ export function migrate(file: File, outputConnectionString: string) {
                 return;
             }
             // Placeholder for actual data insertion
-            const insertQuery = `INSERT INTO ${tableName} VALUES (${schema.map(() => '?').join(', ')})`;
-            console.log('Inserting data:');
-            console.log(insertQuery);
-            const result = await parseFile(file, 10000000);
+            // const insertQuery = `INSERT INTO ${tableName} VALUES (${schema.map(() => '?').join(', ')})`;
+            // console.log('Inserting data:');
+            // console.log(insertQuery);
+            const columns = schema.map((field) => field.name);
+            const result = await parseFile(file, 1000, tableName, columns, dbPath);
             console.log('Parsed data:');
             console.log(result);
             /*
@@ -48,7 +49,7 @@ export function migrate(file: File, outputConnectionString: string) {
 }
 
 
-export const parseFile = async (file: File, batchSize: number) => {
+export const parseFile = async (file: File, batchSize: number, tableName: string, columns: string[], dbPath: string) => {
     console.log('Parsing file:');
     console.log('batchSize:', batchSize);
     return new Promise<void>((resolve, reject) => {
@@ -56,16 +57,16 @@ export const parseFile = async (file: File, batchSize: number) => {
             header: false,
             dynamicTyping: true,
             chunkSize: batchSize,
-            /*
-            step: (results) => {
-                console.log('Parsed batch:');
-                console.log(results.data);
-            },
-            */
-            chunk: (chunk) => {
-                console.log('got a chunk')
-                console.log(chunk.data.length);
-                console.log(chunk.data[0]);
+            chunk: async (chunk) => {
+                const insertStatements = generateInsertStatement(chunk.data, tableName, columns);
+                //console.log('Inserting batch:', insertStatements);
+                const { data: batchData, error: batchError } = await executeSqliteQuery(dbPath, insertStatements);
+                //console.log('Batch data:', batchData);
+                if (batchError) {
+                    console.error('Batch error:', batchError);
+                    console.log(insertStatements)
+                    reject(batchError);
+                }
             },
             complete: () => {
                 console.log('Parsing complete');
@@ -77,3 +78,15 @@ export const parseFile = async (file: File, batchSize: number) => {
         });
     });
 };
+
+function generateInsertStatement(batch: any[], tableName: string, columns: string[]) {
+    // console.log('Generating insert statement:');
+    // console.log('tableName:', tableName);
+    // console.log('columns:', columns);
+    const values = batch.map(row =>
+        `(${row.map(value => typeof value === 'string' ? `'${value.replace(/'/g, "''")}'` : value).join(', ')})`
+    ).join(',\n');
+    return `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES\n${values};`;
+}
+
+
