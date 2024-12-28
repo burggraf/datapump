@@ -31,7 +31,7 @@ export function migrate(file: File, outputConnectionString: string) {
             // console.log('Inserting data:');
             // console.log(insertQuery);
             const columns = schema.map((field) => field.name);
-            const result = await parseFile(file, 1000, tableName, columns, dbPath);
+            const result = await parseFile(file, 10000000, tableName, columns, dbPath);
             console.log('Parsed data:');
             console.log(result);
             /*
@@ -57,7 +57,8 @@ export const parseFile = async (file: File, batchSize: number, tableName: string
             header: false,
             dynamicTyping: true,
             chunkSize: batchSize,
-            chunk: async (chunk) => {
+            chunk: async (chunk, parser) => {
+                parser.pause();
                 const insertStatements = generateInsertStatement(chunk.data, tableName, columns);
                 //console.log('Inserting batch:', insertStatements);
                 const { data: batchData, error: batchError } = await executeSqliteQuery(dbPath, insertStatements);
@@ -67,6 +68,7 @@ export const parseFile = async (file: File, batchSize: number, tableName: string
                     console.log(insertStatements)
                     reject(batchError);
                 }
+                parser.resume();
             },
             complete: () => {
                 console.log('Parsing complete');
