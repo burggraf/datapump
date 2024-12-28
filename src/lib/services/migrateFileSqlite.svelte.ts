@@ -1,4 +1,4 @@
-import { analyzeSchema } from './flat.svelte';
+import { analyzeSchema, parseFile } from './flat.svelte';
 import { executeSqliteQuery } from './sqlite.svelte';
 
 export function migrate(file: File, outputConnectionString: string) {
@@ -29,6 +29,9 @@ export function migrate(file: File, outputConnectionString: string) {
             const insertQuery = `INSERT INTO ${tableName} VALUES (${schema.map(() => '?').join(', ')})`;
             console.log('Inserting data:');
             console.log(insertQuery);
+            const result = await parseFile(file, 3);
+            console.log('Parsed data:');
+            console.log(result);
             /*
             const { error: insertError } = await executeSqliteQuery(outputConnectionString, insertQuery);
             if (insertError) {
