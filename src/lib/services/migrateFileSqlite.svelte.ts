@@ -1,6 +1,11 @@
 import { analyzeSchema } from './flat.svelte';
 import { executeSqliteQuery } from './sqlite.svelte';
 import Papa from 'papaparse';
+import { invoke } from "@tauri-apps/api/core";
+
+const appendToFile = async (filePath: string, text: string) => {
+    await invoke("append_to_file", { filePath, text });
+};
 
 export function migrate(file: File, outputConnectionString: string) {
     return new Promise<void>(async (resolve, reject) => {
@@ -85,6 +90,12 @@ function generateInsertStatement(batch: any[], tableName: string, columns: strin
     // console.log('Generating insert statement:');
     // console.log('tableName:', tableName);
     // console.log('columns:', columns);
+    batch
+        .filter(row => row.length !== columns.length)
+        .forEach(row => {
+            console.log(`Skipping row due to mismatched columns: ${JSON.stringify(row)}`, row)
+            appendToFile(`${tableName}.error.txt`, `Skipping row due to mismatched columns: ${JSON.stringify(row)}\n`);
+        });
     const values = batch
         .filter(row => row.length === columns.length)
         .map(row =>
