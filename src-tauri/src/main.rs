@@ -133,10 +133,10 @@ async fn execute_sqlite_query(
     connection_string: String,
     query: String,
 ) -> Result<QueryResult, String> {
-    println!("Connecting to sqlite database...");
+    // println!("Connecting to sqlite database...");
     let connection = sqlite::open(connection_string).map_err(|e| e.to_string())?;
 
-    println!("Executing query: {}", query);
+    // println!("Executing query: {}", query);
     let mut statement = connection.prepare(query).map_err(|e| e.to_string())?;
 
     let mut columns: Vec<String> = Vec::new();
@@ -156,7 +156,7 @@ async fn execute_sqlite_query(
         rows.push(row);
     }
 
-    println!("Query complete, returning {} rows", rows.len());
+    // println!("Query complete, returning {} rows", rows.len());
     Ok(QueryResult { columns, rows })
 }
 

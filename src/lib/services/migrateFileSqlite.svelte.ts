@@ -1,7 +1,8 @@
+import { invoke } from "@tauri-apps/api/core";
+import Papa from 'papaparse';
+
 import { analyzeSchema } from './flat.svelte';
 import { executeSqliteQuery } from './sqlite.svelte';
-import Papa from 'papaparse';
-import { invoke } from "@tauri-apps/api/core";
 
 const appendToFile = async (filePath: string, text: string) => {
     await invoke("append_to_file", { filePath, text });
@@ -37,8 +38,8 @@ export function migrate(file: File, outputConnectionString: string) {
             // console.log(insertQuery);
             const columns = schema.map((field) => field.name);
             const result = await parseFile(file, 10000000, tableName, columns, dbPath);
-            console.log('Parsed data:');
-            console.log(result);
+            //console.log('Parsed data:');
+            //console.log(result);
             /*
             const { error: insertError } = await executeSqliteQuery(outputConnectionString, insertQuery);
             if (insertError) {
@@ -70,7 +71,7 @@ export const parseFile = async (file: File, batchSize: number, tableName: string
                 //console.log('Batch data:', batchData);
                 if (batchError) {
                     console.error('Batch error:', batchError);
-                    console.log(insertStatements)
+                    // console.log(insertStatements)
                     reject(batchError);
                 }
                 parser.resume();
@@ -99,7 +100,7 @@ function generateInsertStatement(batch: any[], tableName: string, columns: strin
     const values = batch
         .filter(row => row.length === columns.length)
         .map(row =>
-            `(${row.map((value: string | number) => typeof value === 'string' ? `'${value.replace(/'/g, "''")}'` : value).join(', ')})`
+            `(${row.map((value: string | number) => typeof value === 'object' ? 'null' : typeof value === 'string' ? `'${value.replace(/'/g, "''")}'` : value).join(', ')})`
         ).join(',\n');
     return `INSERT INTO ${tableName} (${columns.join(', ')}) VALUES\n${values};`;
 }
