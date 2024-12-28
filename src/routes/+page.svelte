@@ -102,6 +102,6 @@
 		/>
 	</div>
 	<div style="width: 50%;">
-		<MigrationCard />
+		<MigrationCard {sourcePath} {outputConnectionString} />
 	</div>
 </div>

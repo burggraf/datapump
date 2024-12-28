@@ -52,7 +52,9 @@
 
 						// Analyze schema
 						try {
+							console.log("Analyzing schema... file is", file);
 							schema = await analyzeSchema(file);
+							console.log("schema", schema);
 							fileError = "";
 							handleFileChange(file.name);
 						} catch (error) {
