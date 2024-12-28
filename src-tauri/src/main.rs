@@ -6,6 +6,8 @@ mod db;
 use db::connect_db;
 use rust_decimal::Decimal;
 use serde::Serialize;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::path;
 use time::OffsetDateTime;
 use tokio_postgres::types::Type;
@@ -172,6 +174,18 @@ async fn get_real_path(file_path: String) -> Result<String, String> {
     Ok(absolute_path.to_string_lossy().to_string())
 }
 
+#[tauri::command]
+async fn append_to_file(file_path: String, text: String) -> Result<(), String> {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(file_path)
+        .map_err(|e| e.to_string())?;
+
+    file.write_all(text.as_bytes()).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -179,7 +193,8 @@ fn main() {
             db::test_database_connection,
             execute_postgres_query,
             execute_sqlite_query,
-            get_real_path
+            get_real_path,
+            append_to_file
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
