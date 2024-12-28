@@ -67,9 +67,9 @@
 		if (storedSourcePath) {
 			sourcePath = storedSourcePath;
 		}
-		const storedOutputConnectionString = localStorage.getItem("sourceConnection");
+		const storedOutputConnectionString = localStorage.getItem("outputConnectionString");
 		if (storedOutputConnectionString) {
-			outputConnectionString = JSON.parse(storedOutputConnectionString);
+			outputConnectionString = storedOutputConnectionString;
 		}
 		const storedSources = localStorage.getItem("inputSources");
 		if (storedSources) {
@@ -81,7 +81,7 @@
 
 	$effect(() => {
 		localStorage.setItem("sourcePath", sourcePath);
-		localStorage.setItem("outputConnectionString", JSON.stringify(outputConnectionString));
+		localStorage.setItem("outputConnectionString", outputConnectionString);
 		localStorage.setItem("inputSources", JSON.stringify(sources));
 	});
 </script>
