@@ -1,21 +1,10 @@
 import { analyzeSchema } from './flat.svelte';
 import { executeSqliteQuery } from './sqlite.svelte';
 
-async function getFile(sourcePath: string): Promise<File> {
-    const response = await fetch(sourcePath);
-    if (!response.ok) {
-        throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
-    }
-    const blob = await response.blob();
-    const file = new File([blob], sourcePath.split('/').pop() || 'unknown');
-    return file;
-}
-
-export function migrate(sourcePath: string, outputConnectionString: string) {
+export function migrate(file: File, outputConnectionString: string) {
     return new Promise<void>(async (resolve, reject) => {
         try {
-            let tableName = sourcePath.split('/')[sourcePath.split('/').length - 1];
-            tableName = tableName.replace(/\.[^/.]+$/, '');
+            let tableName = file.name.replace(/\.[^/.]+$/, '');
             const schema = await analyzeSchema(file);
             console.log('Schema:');
             console.log(schema);

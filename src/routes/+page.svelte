@@ -60,7 +60,7 @@
 	}
 
 	let sources = $state<Source[]>([]);
-	let selectedSource = $state<Source | null>(null);
+	let selectedSource = $state<File | null>(null);
 
 	$effect.pre(() => {
 		const storedSourcePath = localStorage.getItem("sourcePath");
@@ -102,6 +102,6 @@
 		/>
 	</div>
 	<div style="width: 50%;">
-		<MigrationCard {sourcePath} {outputConnectionString} />
+		<MigrationCard {selectedSource} {outputConnectionString} />
 	</div>
 </div>

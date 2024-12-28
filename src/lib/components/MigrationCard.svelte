@@ -3,12 +3,15 @@
 	import * as Card from "$lib/components/ui/card";
 	import { migrate } from "$lib/services/migrateFileSqlite.svelte";
 	import { invoke } from "@tauri-apps/api/core";
-	let { sourcePath, outputConnectionString } = $props<{
-		sourcePath: string;
+	let { selectedSource, outputConnectionString } = $props<{
+		selectedSource: File | null;
 		outputConnectionString: string;
 	}>();
 	const startMigration = async () => {
-		await migrate(sourcePath, outputConnectionString);
+		console.log("selectedSource", selectedSource);
+		if (selectedSource) {
+			await migrate(selectedSource, outputConnectionString);
+		}
 	};
 	const appendToFile = async () => {
 		await invoke("append_to_file", { filePath: "test_append.txt", text: "hello world\n" });

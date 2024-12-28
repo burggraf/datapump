@@ -9,7 +9,7 @@
 		sourcePath = $bindable(""),
 		schema = $bindable<{ name: string; type: string }[]>([]),
 		fileError = $bindable(""),
-		selectedSource = $bindable<any>(null)
+		selectedSource = $bindable<File | null>(null)
 	} = $props();
 
 	async function handleFileChange(newFilePath: string) {
@@ -57,6 +57,7 @@
 							console.log("schema", schema);
 							fileError = "";
 							handleFileChange(file.name);
+							selectedSource = file;
 						} catch (error) {
 							fileError = "Failed to parse file. Please check the format.";
 							schema = [];
