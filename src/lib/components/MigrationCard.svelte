@@ -48,9 +48,7 @@
 			status = event.payload.status;
 			message = event.payload.message || "";
 			const elapsed = (+new Date() - ts) / 1000;
-			console.log("time elapsed", elapsed, "seconds");
 			const rps = processedRows / elapsed;
-			console.log("records per second", processedRows / elapsed);
 			// calculate estimated time remaining
 			const timeRemaining = (totalRows - processedRows) / rps;
 			// display time remaining in minutes:seconds format

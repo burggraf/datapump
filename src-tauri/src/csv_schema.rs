@@ -17,16 +17,16 @@ pub fn get_csv_schema(file_path: &str) -> Result<String, String> {
             let current_type = if field.parse::<i64>().is_ok() {
                 "integer"
             } else if field.parse::<f64>().is_ok() {
-                "float"
+                "real"
             } else {
-                "string"
+                "text"
             };
             if field_types.len() <= i {
                 field_types.push(current_type.to_string());
-            } else if field_types[i] != "string" && current_type == "string" {
-                field_types[i] = "string".to_string();
-            } else if field_types[i] != "float" && current_type == "float" {
-                field_types[i] = "float".to_string();
+            } else if field_types[i] != "text" && current_type == "text" {
+                field_types[i] = "text".to_string();
+            } else if field_types[i] != "real" && current_type == "real" {
+                field_types[i] = "real".to_string();
             }
         }
         break;
