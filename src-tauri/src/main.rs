@@ -6,14 +6,22 @@ mod db;
 
 use db::connect_db;
 use rust_decimal::Decimal;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path;
+use tauri::Emitter;
 use time::OffsetDateTime;
 use tokio_postgres::types::Type;
 use tokio_postgres::{NoTls, Row};
 use uuid::Uuid;
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct ProgressEvent {
+    total_rows: usize,
+    batch_size: usize,
+    status: String,
+}
 
 #[derive(Debug, Serialize)]
 struct QueryResult {
@@ -205,6 +213,7 @@ fn main() {
 
 #[tauri::command]
 async fn csv_to_sqlite(
+    window: tauri::Window,
     file_path: String,
     batch_size: usize,
     schema: String,
@@ -293,6 +302,18 @@ async fn csv_to_sqlite(
                     println!("Successfully inserted {} rows", result.rows.len());
                     total_rows += batch.len();
                     batch.clear();
+
+                    // Emit progress event
+                    let _ = window
+                        .emit(
+                            "migration_progress",
+                            ProgressEvent {
+                                total_rows,
+                                batch_size: batch.len(),
+                                status: "processing".to_string(),
+                            },
+                        )
+                        .map_err(|e| e.to_string())?;
                 }
                 Err(e) => {
                     println!("Error inserting batch: {}", e);
