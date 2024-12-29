@@ -8,7 +8,7 @@
 		selectedSource: File | null;
 		outputConnectionString: string;
 	}>();
-	let sourcePath = $state("");
+	let sourcePath = $state("/Users/markb/dev/boxball/retrosheet_event.tsv");
 	const startMigration = async () => {
 		console.log("selectedSource", selectedSource);
 		if (selectedSource) {
@@ -21,6 +21,17 @@
 	const test = async () => {
 		const schema = await invoke("get_csv_schema", { filePath: sourcePath });
 		console.log("schema", schema);
+		console.log("schema", typeof schema);
+		if (typeof schema === "string") {
+			console.log("schema", schema.split(","));
+		}
+		const result = await invoke("csv_to_sqlite", {
+			filePath: sourcePath,
+			batchSize: 10000000,
+			schema: schema,
+			dbPath: "/Users/markb/Downloads/retrosheet_event_02.db"
+		});
+		console.log("result", result);
 	};
 </script>
 

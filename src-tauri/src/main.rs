@@ -196,10 +196,122 @@ fn main() {
             execute_sqlite_query,
             get_real_path,
             append_to_file,
-            get_csv_schema
+            get_csv_schema,
+            csv_to_sqlite
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[tauri::command]
+async fn csv_to_sqlite(
+    file_path: String,
+    batch_size: usize,
+    schema: String,
+    db_path: String,
+) -> Result<(), String> {
+    // Parse schema string into column names and types
+    let columns: Vec<(String, String)> = schema
+        .split(',')
+        .map(|s| {
+            let parts: Vec<&str> = s.split(':').collect();
+            if parts.len() != 2 {
+                return Err(format!("Invalid schema format: {}", s));
+            }
+            Ok((parts[0].to_string(), parts[1].to_string()))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+
+    // Create table if it doesn't exist
+    let table_name = "imported_data";
+    let create_table_sql = format!(
+        "CREATE TABLE IF NOT EXISTS {} ({})",
+        table_name,
+        columns
+            .iter()
+            .map(|(name, typ)| format!("{} {}", name, typ))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    execute_sqlite_query(db_path.clone(), create_table_sql).await?;
+
+    // Open CSV file
+    let file = std::fs::File::open(&file_path).map_err(|e| e.to_string())?;
+    let mut rdr = csv::Reader::from_reader(file);
+
+    let mut batch = Vec::new();
+    let mut total_rows = 0;
+
+    for result in rdr.records() {
+        let record = result.map_err(|e| e.to_string())?;
+
+        // Convert record to SQL values
+        let values: Vec<String> = record
+            .iter()
+            .map(|field| {
+                if field.is_empty() {
+                    "NULL".to_string()
+                } else {
+                    format!("'{}'", field.replace("'", "''"))
+                }
+            })
+            .collect();
+
+        batch.push(format!("({})", values.join(", ")));
+
+        // Execute batch when size is reached
+        if batch.len() >= batch_size {
+            let insert_sql = format!(
+                "INSERT INTO {} ({}) VALUES {}",
+                table_name,
+                columns
+                    .iter()
+                    .map(|(name, _)| name.clone())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                batch.join(", ")
+            );
+            println!("Executing batch insert of {} rows", batch.len());
+            match execute_sqlite_query(db_path.clone(), insert_sql).await {
+                Ok(result) => {
+                    println!("Successfully inserted {} rows", result.rows.len());
+                    total_rows += batch.len();
+                    batch.clear();
+                }
+                Err(e) => {
+                    println!("Error inserting batch: {}", e);
+                    return Err(e);
+                }
+            }
+        }
+    }
+
+    // Insert remaining records
+    if !batch.is_empty() {
+        let insert_sql = format!(
+            "INSERT INTO {} ({}) VALUES {}",
+            table_name,
+            columns
+                .iter()
+                .map(|(name, _)| name.clone())
+                .collect::<Vec<_>>()
+                .join(", "),
+            batch.join(", ")
+        );
+        println!("Executing final batch insert of {} rows", batch.len());
+        match execute_sqlite_query(db_path.clone(), insert_sql).await {
+            Ok(result) => {
+                println!("Successfully inserted {} rows", result.rows.len());
+                total_rows += batch.len();
+            }
+            Err(e) => {
+                println!("Error inserting final batch: {}", e);
+                return Err(e);
+            }
+        }
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
