@@ -80,7 +80,7 @@ async fn execute_postgres_query(
     connection_string: String,
     query: String,
 ) -> Result<QueryResult, String> {
-    println!("Connecting to database...");
+    // println!("Connecting to database...");
     let (client, connection) = tokio_postgres::connect(&connection_string, NoTls)
         .await
         .map_err(|e| {
@@ -94,10 +94,10 @@ async fn execute_postgres_query(
         }
     });
 
-    println!("Executing query: {}", query);
+    // println!("Executing query: {}", query);
     let rows = match client.query(query.as_str(), &[]).await {
         Ok(r) => {
-            println!("Query successful, got {} rows", r.len());
+            // println!("Query successful, got {} rows", r.len());
             r
         }
         Err(e) => {
@@ -114,7 +114,7 @@ async fn execute_postgres_query(
         });
     }
 
-    println!("Processing {} rows", rows.len());
+    // println!("Processing {} rows", rows.len());
     let columns: Vec<String> = rows[0]
         .columns()
         .iter()
@@ -131,7 +131,7 @@ async fn execute_postgres_query(
         formatted_rows.push(formatted_row);
     }
 
-    println!("Query complete, returning {} rows", formatted_rows.len());
+    // println!("Query complete, returning {} rows", formatted_rows.len());
     Ok(QueryResult {
         columns,
         rows: formatted_rows,
@@ -243,7 +243,7 @@ async fn csv_to_sqlite(
     schema: String,
     db_path: String,
 ) -> Result<(), String> {
-    println!("Validating parameters...");
+    // println!("Validating parameters...");
     if !std::path::Path::new(&file_path).exists() {
         println!("File does not exist: {}", file_path);
         return Err(format!("File does not exist: {}", file_path));
@@ -256,9 +256,9 @@ async fn csv_to_sqlite(
         println!("Empty schema provided");
         return Err("Schema cannot be empty".to_string());
     }
-    println!("Parameters validated successfully");
+    // println!("Parameters validated successfully");
 
-    println!("Parsing schema...");
+    // println!("Parsing schema...");
     let columns: Vec<(String, String)> = schema
         .split(',')
         .map(|s| {
@@ -279,34 +279,34 @@ async fn csv_to_sqlite(
             Ok((name, typ))
         })
         .collect::<Result<Vec<_>, String>>()?;
-    println!("Schema parsed successfully");
+    // println!("Schema parsed successfully");
 
-    println!("Opening database connection...");
+    // println!("Opening database connection...");
     let connection = sqlite::open(&db_path).map_err(|e| {
         println!("Failed to open database: {}", e);
         e.to_string()
     })?;
-    println!("Database connection established");
+    // println!("Database connection established");
 
-    println!("Setting WAL mode...");
+    // println!("Setting WAL mode...");
     connection
         .execute("PRAGMA journal_mode=WAL;")
         .map_err(|e| {
             println!("Failed to set WAL mode: {}", e);
             e.to_string()
         })?;
-    println!("WAL mode set successfully");
+    // println!("WAL mode set successfully");
 
-    println!("Setting synchronous mode...");
+    // println!("Setting synchronous mode...");
     connection
         .execute("PRAGMA synchronous=NORMAL;")
         .map_err(|e| {
             println!("Failed to set synchronous mode: {}", e);
             e.to_string()
         })?;
-    println!("Synchronous mode set successfully");
+    // println!("Synchronous mode set successfully");
 
-    println!("Creating table...");
+    // !("Creating table...");
     let table_name = "imported_data";
     let create_table_sql = format!(
         "CREATE TABLE IF NOT EXISTS {} ({})",
@@ -317,14 +317,14 @@ async fn csv_to_sqlite(
             .collect::<Vec<_>>()
             .join(", ")
     );
-    println!("Executing SQL: {}", create_table_sql);
+    // println!("Executing SQL: {}", create_table_sql);
     connection.execute(create_table_sql).map_err(|e| {
         println!("Failed to create table: {}", e);
         e.to_string()
     })?;
-    println!("Table created successfully");
+    // println!("Table created successfully");
 
-    println!("Preparing insert statement...");
+    // println!("Preparing insert statement...");
     let placeholders = columns.iter().map(|_| "?").collect::<Vec<_>>().join(",");
     let column_names = columns
         .iter()
@@ -335,12 +335,12 @@ async fn csv_to_sqlite(
         "INSERT INTO {} ({}) VALUES ({})",
         table_name, column_names, placeholders
     );
-    println!("Insert SQL: {}", insert_sql);
+    // println!("Insert SQL: {}", insert_sql);
     let mut statement = connection.prepare(&insert_sql).map_err(|e| {
         println!("Failed to prepare insert statement: {}", e);
         e.to_string()
     })?;
-    println!("Insert statement prepared successfully");
+    // println!("Insert statement prepared successfully");
 
     // Function to execute with retry
     fn execute_with_retry<F>(connection: &sqlite::Connection, f: F) -> Result<(), String>
@@ -361,16 +361,16 @@ async fn csv_to_sqlite(
         }
     }
 
-    println!("Starting transaction...");
+    // println!("Starting transaction...");
     execute_with_retry(&connection, |conn| {
         conn.execute("BEGIN IMMEDIATE TRANSACTION").map_err(|e| {
             println!("Failed to start transaction: {}", e);
             e.to_string()
         })
     })?;
-    println!("Transaction started successfully");
+    // println!("Transaction started successfully");
 
-    println!("Counting total rows...");
+    // println!("Counting total rows...");
     let _ = window.emit(
         "migration_progress",
         ProgressEvent {
@@ -390,7 +390,7 @@ async fn csv_to_sqlite(
     let reader = std::io::BufReader::new(file);
 
     let total_rows = reader.lines().count();
-    println!("Total rows to process: {}", total_rows);
+    // println!("Total rows to process: {}", total_rows);
 
     let _ = window.emit(
         "migration_progress",
@@ -407,15 +407,15 @@ async fn csv_to_sqlite(
     let mut row_count = 0;
     let batch_size = batch_size; // Use the user-provided batch size
 
-    println!("Resetting CSV reader...");
+    // println!("Resetting CSV reader...");
     let file = std::fs::File::open(&file_path).map_err(|e| {
         println!("Failed to reopen CSV file: {}", e);
         e.to_string()
     })?;
     let mut rdr = csv::Reader::from_reader(file);
-    println!("CSV reader reset successfully");
+    // println!("CSV reader reset successfully");
 
-    println!("Starting CSV processing...");
+    // println!("Starting CSV processing...");
     let mut last_logged = 0;
     for result in rdr.records() {
         row_count += 1;
@@ -423,7 +423,7 @@ async fn csv_to_sqlite(
 
         // Log progress every 100,000 rows
         if row_count - last_logged >= 100000 {
-            println!("Processed {} rows...", row_count);
+            // println!("Processed {} rows...", row_count);
             last_logged = row_count;
         }
 
