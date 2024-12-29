@@ -15,6 +15,7 @@
 	let totalRows = $state(0);
 	let processedRows = $state(0);
 	let batchSize = $state(0);
+	let message = $state("");
 	let status = $state("idle");
 
 	interface ProgressEvent {
@@ -23,6 +24,7 @@
 		total_rows: number;
 		batch_size: number;
 		status: string;
+		message?: string;
 	}
 	let sourcePath = $state("/Users/markb/dev/boxball/retrosheet_event.tsv");
 	const startMigration = async () => {
@@ -40,18 +42,11 @@
 		console.log("listening for migration_progress");
 		const unlisten = await listen<ProgressEvent>("migration_progress", (event) => {
 			console.log("Progress update:", event.payload);
-			/**
-				batch_size: 50000
-				processed_rows: 4050000
-				row_count: 4050000
-				status: "processing"
-				total_rows: 14215797
-
-			*/
 			processedRows = event.payload.processed_rows;
 			totalRows = event.payload.total_rows;
 			batchSize = event.payload.batch_size;
 			status = event.payload.status;
+			message = event.payload.message || "";
 			const elapsed = (+new Date() - ts) / 1000;
 			console.log("time elapsed", elapsed, "seconds");
 			const rps = processedRows / elapsed;
@@ -60,40 +55,56 @@
 			const timeRemaining = (totalRows - processedRows) / rps;
 			// display time remaining in minutes:seconds format
 			switch (status) {
+				case "parsing_schema_start":
+					console.log("parsing schema start");
+					if (message) console.log("message:", message);
+					break;
+				case "parsing_schema_complete":
+					console.log("***************************");
+					console.log("parsing schema complete");
+					console.log(elapsed, "seconds elapsed");
+					if (message) console.log("message:", message);
+					console.log("***************************");
+					ts = +new Date();
+					break;
 				case "counting_rows":
 					console.log("counting rows");
+					if (message) console.log("message:", message);
 					break;
 				case "counted_rows":
+					console.log("***************************");
 					console.log("counted rows");
 					console.log(elapsed, "seconds elapsed");
-					console.log("restarting timer...");
+					if (message) console.log("message:", message);
+					console.log("***************************");
 					ts = +new Date();
 					break;
 				case "processing":
 					console.log(
 						"time remaining",
-						timeRemaining,
-						" total seconds",
 						Math.floor(timeRemaining / 60),
 						"minutes",
 						Math.floor(timeRemaining % 60),
-						"seconds"
+						"seconds",
+						"(" + Math.round(rps) + " records per second)"
 					);
+					if (message) console.log("message:", message);
 					break;
 				case "completed":
+					console.log("***************************");
 					console.log("completed");
 					console.log(
-						"time remaining",
-						timeRemaining,
-						" total seconds",
 						Math.floor(timeRemaining / 60),
 						"minutes",
 						Math.floor(timeRemaining % 60),
 						"seconds"
 					);
+					if (message) console.log("message:", message);
+					console.log("***************************");
 					break;
 				default:
-					console.log("unknown status");
+					console.log("unknown status:", status);
+					if (message) console.log("message:", message);
 			}
 		});
 

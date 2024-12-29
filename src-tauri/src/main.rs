@@ -23,6 +23,7 @@ struct ProgressEvent {
     row_count: usize,
     batch_size: usize,
     status: String,
+    message: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -197,6 +198,39 @@ async fn append_to_file(file_path: String, text: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+async fn get_csv_schema(window: tauri::Window, file_path: String) -> Result<String, String> {
+    // Emit event before schema parsing
+    let _ = window.emit(
+        "migration_progress",
+        ProgressEvent {
+            total_rows: 0,
+            processed_rows: 0,
+            row_count: 0,
+            batch_size: 0,
+            status: "parsing_schema_start".to_string(),
+            message: Some("Starting schema parsing".to_string()),
+        },
+    );
+
+    let result = csv_schema::get_csv_schema(&file_path);
+
+    // Emit event after schema parsing
+    let _ = window.emit(
+        "migration_progress",
+        ProgressEvent {
+            total_rows: 0,
+            processed_rows: 0,
+            row_count: 0,
+            batch_size: 0,
+            status: "parsing_schema_complete".to_string(),
+            message: Some("Schema parsing complete".to_string()),
+        },
+    );
+
+    result
+}
+
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
@@ -357,6 +391,7 @@ async fn csv_to_sqlite(
             row_count: 0,
             batch_size: 0,
             status: "counting_rows".to_string(),
+            message: None,
         },
     );
 
@@ -377,6 +412,7 @@ async fn csv_to_sqlite(
             row_count: 0,
             batch_size: 0,
             status: "counted_rows".to_string(),
+            message: None,
         },
     );
     let mut processed_rows = 0;
@@ -443,6 +479,7 @@ async fn csv_to_sqlite(
                             row_count,
                             batch_size,
                             status: "processing".to_string(),
+                            message: None,
                         },
                     );
                 }
@@ -466,13 +503,9 @@ async fn csv_to_sqlite(
             row_count,
             batch_size: 0,
             status: "complete".to_string(),
+            message: None,
         },
     );
 
     Ok(())
-}
-
-#[tauri::command]
-async fn get_csv_schema(file_path: String) -> Result<String, String> {
-    csv_schema::get_csv_schema(&file_path)
 }
