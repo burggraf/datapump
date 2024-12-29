@@ -219,19 +219,41 @@ async fn csv_to_sqlite(
     schema: String,
     db_path: String,
 ) -> Result<(), String> {
-    // Parse schema string into column names and types
+    // Validate parameters
+    if !std::path::Path::new(&file_path).exists() {
+        return Err(format!("File does not exist: {}", file_path));
+    }
+    if batch_size == 0 {
+        return Err("Batch size must be greater than 0".to_string());
+    }
+    if schema.is_empty() {
+        return Err("Schema cannot be empty".to_string());
+    }
+
+    // Parse schema
     let columns: Vec<(String, String)> = schema
         .split(',')
         .map(|s| {
             let parts: Vec<&str> = s.split(':').collect();
             if parts.len() != 2 {
-                return Err(format!("Invalid schema format: {}", s));
+                return Err(format!(
+                    "Invalid schema format: expected 'name:type', got '{}'",
+                    s
+                ));
             }
-            Ok((parts[0].to_string(), parts[1].to_string()))
+            let name = parts[0].trim().to_string();
+            let typ = parts[1].trim().to_string();
+            if name.is_empty() || typ.is_empty() {
+                return Err(format!("Empty name or type in schema: '{}'", s));
+            }
+            Ok((name, typ))
         })
         .collect::<Result<Vec<_>, String>>()?;
 
-    // Create table if it doesn't exist
+    // Open database connection
+    let connection = sqlite::open(&db_path).map_err(|e| e.to_string())?;
+
+    // Create table
     let table_name = "imported_data";
     let create_table_sql = format!(
         "CREATE TABLE IF NOT EXISTS {} ({})",
@@ -242,111 +264,94 @@ async fn csv_to_sqlite(
             .collect::<Vec<_>>()
             .join(", ")
     );
-    execute_sqlite_query(db_path.clone(), create_table_sql).await?;
+    connection
+        .execute(create_table_sql)
+        .map_err(|e| e.to_string())?;
+
+    // Prepare insert statement
+    let placeholders = columns.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    let column_names = columns
+        .iter()
+        .map(|(name, _)| name.clone())
+        .collect::<Vec<_>>()
+        .join(",");
+    let insert_sql = format!(
+        "INSERT INTO {} ({}) VALUES ({})",
+        table_name, column_names, placeholders
+    );
+    let mut statement = connection.prepare(&insert_sql).map_err(|e| e.to_string())?;
+
+    // Start transaction
+    connection
+        .execute("BEGIN TRANSACTION")
+        .map_err(|e| e.to_string())?;
 
     // Open CSV file
     let file = std::fs::File::open(&file_path).map_err(|e| e.to_string())?;
     let mut rdr = csv::Reader::from_reader(file);
 
-    let mut batch = Vec::new();
     let mut total_rows = 0;
     let mut row_count = 0;
+    let batch_size = batch_size.max(50000); // Minimum batch size of 50,000
 
-    println!("Starting CSV processing...");
     for result in rdr.records() {
         row_count += 1;
-        // println!("Processing row {}", row_count);
 
         let record = match result {
             Ok(r) => r,
             Err(e) => {
-                println!("Error reading CSV row {}: {}", row_count, e);
+                connection.execute("ROLLBACK").ok();
                 return Err(e.to_string());
             }
         };
 
-        //// println!("Row {}: {:?}", row_count, record);
+        // Bind parameters
+        for (i, field) in record.iter().enumerate() {
+            if field.is_empty() {
+                statement.bind((i + 1, ())).map_err(|e| e.to_string())?;
+            } else {
+                statement.bind((i + 1, field)).map_err(|e| e.to_string())?;
+            }
+        }
 
-        // Convert record to SQL values
-        let values: Vec<String> = record
-            .iter()
-            .map(|field| {
-                if field.is_empty() {
-                    "NULL".to_string()
-                } else {
-                    format!("'{}'", field.replace("'", "''"))
-                }
-            })
-            .collect();
+        // Execute insert
+        statement.next().map_err(|e| e.to_string())?;
+        total_rows += 1;
 
-        //// println!("Row {} values: {:?}", row_count, values);
+        // Reset statement for next row
+        statement.reset().map_err(|e| e.to_string())?;
 
-        batch.push(format!("({})", values.join(", ")));
-        ////println!("Current batch size: {}", batch.len());
+        // Commit batch
+        if total_rows % batch_size == 0 {
+            connection.execute("COMMIT").map_err(|e| e.to_string())?;
+            connection
+                .execute("BEGIN TRANSACTION")
+                .map_err(|e| e.to_string())?;
 
-        // Execute batch when size is reached
-        if batch.len() >= batch_size {
-            let insert_sql = format!(
-                "INSERT INTO {} ({}) VALUES {}",
-                table_name,
-                columns
-                    .iter()
-                    .map(|(name, _)| name.clone())
-                    .collect::<Vec<_>>()
-                    .join(", "),
-                batch.join(", ")
+            // Emit progress event
+            let _ = window.emit(
+                "migration_progress",
+                ProgressEvent {
+                    total_rows,
+                    batch_size,
+                    status: "processing".to_string(),
+                },
             );
-            println!("Executing batch insert of {} rows", batch.len());
-            match execute_sqlite_query(db_path.clone(), insert_sql).await {
-                Ok(result) => {
-                    println!("Successfully inserted {} rows", result.rows.len());
-                    total_rows += batch.len();
-                    batch.clear();
-
-                    // Emit progress event
-                    let _ = window
-                        .emit(
-                            "migration_progress",
-                            ProgressEvent {
-                                total_rows,
-                                batch_size: batch.len(),
-                                status: "processing".to_string(),
-                            },
-                        )
-                        .map_err(|e| e.to_string())?;
-                }
-                Err(e) => {
-                    println!("Error inserting batch: {}", e);
-                    return Err(e);
-                }
-            }
         }
     }
 
-    // Insert remaining records
-    if !batch.is_empty() {
-        let insert_sql = format!(
-            "INSERT INTO {} ({}) VALUES {}",
-            table_name,
-            columns
-                .iter()
-                .map(|(name, _)| name.clone())
-                .collect::<Vec<_>>()
-                .join(", "),
-            batch.join(", ")
-        );
-        println!("Executing final batch insert of {} rows", batch.len());
-        match execute_sqlite_query(db_path.clone(), insert_sql).await {
-            Ok(result) => {
-                println!("Successfully inserted {} rows", result.rows.len());
-                total_rows += batch.len();
-            }
-            Err(e) => {
-                println!("Error inserting final batch: {}", e);
-                return Err(e);
-            }
-        }
-    }
+    // Final commit
+    connection.execute("COMMIT").map_err(|e| e.to_string())?;
+
+    // Final progress event
+    let _ = window.emit(
+        "migration_progress",
+        ProgressEvent {
+            total_rows,
+            batch_size: 0,
+            status: "complete".to_string(),
+        },
+    );
 
     Ok(())
 }

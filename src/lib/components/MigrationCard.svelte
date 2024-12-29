@@ -5,6 +5,7 @@
 	import { migrate } from "$lib/services/migrateFileSqlite.svelte";
 	import { invoke } from "@tauri-apps/api/core";
 	import { listen } from "@tauri-apps/api/event";
+	import { getCurrentWindow } from "@tauri-apps/api/window";
 
 	let { selectedSource, outputConnectionString } = $props<{
 		selectedSource: File | null;
@@ -33,6 +34,7 @@
 	const test = async () => {
 		const ts = +new Date();
 		// Setup event listener
+		console.log("listening for migration_progress");
 		const unlisten = await listen<ProgressEvent>("migration_progress", (event) => {
 			console.log("Progress update:", event.payload);
 			totalRows = event.payload.total_rows;
@@ -43,19 +45,36 @@
 		});
 
 		try {
+			console.log("invoking get_csv_schema");
 			const schema = await invoke("get_csv_schema", { filePath: sourcePath });
 			console.log("schema", schema);
 			console.log("schema", typeof schema);
-			if (typeof schema === "string") {
-				console.log("schema", schema.split(","));
+
+			if (typeof schema !== "string") {
+				throw new Error("Invalid schema format: expected string");
 			}
+
+			const schemaParts = schema.split(",");
+			console.log("schema parts:", schemaParts);
+
+			// Validate schema format
+			if (!schemaParts.every((part) => part.includes(":"))) {
+				throw new Error("Invalid schema format: each part should be in 'name:type' format");
+			}
+
+			console.log("invoking csv_to_sqlite");
+			const window = getCurrentWindow();
 			const result = await invoke("csv_to_sqlite", {
+				window,
 				filePath: sourcePath,
-				batchSize: 100000,
+				batchSize: 50000,
 				schema: schema,
 				dbPath: "/Users/markb/Downloads/retrosheet_event_02.db"
 			});
 			console.log("result", result);
+		} catch (error) {
+			console.error("Error during CSV to SQLite migration:", error);
+			throw error;
 		} finally {
 			// Clean up event listener
 			unlisten();
