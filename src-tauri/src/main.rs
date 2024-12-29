@@ -2,9 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod csv_schema;
-mod db;
 
-use db::connect_db;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
@@ -173,14 +171,6 @@ async fn execute_sqlite_query(
 }
 
 #[tauri::command]
-async fn connect(url: String) -> Result<(), String> {
-    match connect_db(&url).await {
-        Ok(_) => Ok(()),
-        Err(e) => Err(e.to_string()),
-    }
-}
-
-#[tauri::command]
 async fn get_real_path(file_path: String) -> Result<String, String> {
     let absolute_path = path::absolute(file_path).map_err(|e| e.to_string())?;
     Ok(absolute_path.to_string_lossy().to_string())
@@ -234,8 +224,6 @@ async fn get_csv_schema(window: tauri::Window, file_path: String) -> Result<Stri
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
-            connect,
-            db::test_database_connection,
             execute_postgres_query,
             execute_sqlite_query,
             get_real_path,
