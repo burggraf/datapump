@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from "$lib/components/ui/button";
+	import { Input } from "$lib/components/ui/input";
 	import * as Card from "$lib/components/ui/card";
 	import { migrate } from "$lib/services/migrateFileSqlite.svelte";
 	import { invoke } from "@tauri-apps/api/core";
@@ -7,6 +8,7 @@
 		selectedSource: File | null;
 		outputConnectionString: string;
 	}>();
+	let sourcePath = $state("");
 	const startMigration = async () => {
 		console.log("selectedSource", selectedSource);
 		if (selectedSource) {
@@ -16,6 +18,10 @@
 	const appendToFile = async () => {
 		await invoke("append_to_file", { filePath: "test_append.txt", text: "hello world\n" });
 	};
+	const test = async () => {
+		const schema = await invoke("get_csv_schema", { filePath: sourcePath });
+		console.log("schema", schema);
+	};
 </script>
 
 <Card.Root class="h-full">
@@ -23,7 +29,17 @@
 		<Card.Title>Migration</Card.Title>
 		<Card.Description>Migration status</Card.Description>
 	</Card.Header>
-	<Card.Content>
+	<Card.Content class="gap-2">
+		<div class="block w-full">
+			<Input
+				type="text"
+				id="filePath"
+				value={sourcePath}
+				class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+			/>
+		</div>
+		<br />
+		<Button onclick={test}>test</Button>
 		<Button onclick={startMigration}>Start</Button>
 		<Button onclick={appendToFile}>Append to File</Button>
 	</Card.Content>
