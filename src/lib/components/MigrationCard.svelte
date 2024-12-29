@@ -13,10 +13,13 @@
 	}>();
 
 	let totalRows = $state(0);
+	let processedRows = $state(0);
 	let batchSize = $state(0);
 	let status = $state("idle");
 
 	interface ProgressEvent {
+		processed_rows: number;
+		row_count: number;
 		total_rows: number;
 		batch_size: number;
 		status: string;
@@ -37,11 +40,33 @@
 		console.log("listening for migration_progress");
 		const unlisten = await listen<ProgressEvent>("migration_progress", (event) => {
 			console.log("Progress update:", event.payload);
+			/**
+				batch_size: 50000
+				processed_rows: 4050000
+				row_count: 4050000
+				status: "processing"
+				total_rows: 14215797
+
+			*/
+			processedRows = event.payload.processed_rows;
 			totalRows = event.payload.total_rows;
 			batchSize = event.payload.batch_size;
 			status = event.payload.status;
 			console.log("time elapsed", (+new Date() - ts) / 1000, "seconds");
-			console.log("records per second", event.payload.total_rows / ((+new Date() - ts) / 1000));
+			const rps = processedRows / ((+new Date() - ts) / 1000);
+			console.log("records per second", processedRows / ((+new Date() - ts) / 1000));
+			// calculate estimated time remaining
+			const timeRemaining = (totalRows - processedRows) / rps;
+			// display time remaining in minutes:seconds format
+			console.log(
+				"time remaining",
+				timeRemaining,
+				" total seconds",
+				Math.floor(timeRemaining / 60),
+				"minutes",
+				Math.floor(timeRemaining % 60),
+				"seconds"
+			);
 		});
 
 		try {
