@@ -1,6 +1,7 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod csv_schema;
 mod db;
 
 use db::connect_db;
@@ -194,8 +195,14 @@ fn main() {
             execute_postgres_query,
             execute_sqlite_query,
             get_real_path,
-            append_to_file
+            append_to_file,
+            get_csv_schema
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[tauri::command]
+async fn get_csv_schema(file_path: String) -> Result<String, String> {
+    csv_schema::get_csv_schema(&file_path)
 }
