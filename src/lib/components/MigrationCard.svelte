@@ -27,7 +27,7 @@
 		}
 		const result = await invoke("csv_to_sqlite", {
 			filePath: sourcePath,
-			batchSize: 10000000,
+			batchSize: 100000,
 			schema: schema,
 			dbPath: "/Users/markb/Downloads/retrosheet_event_02.db"
 		});

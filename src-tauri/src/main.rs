@@ -241,9 +241,22 @@ async fn csv_to_sqlite(
 
     let mut batch = Vec::new();
     let mut total_rows = 0;
+    let mut row_count = 0;
 
+    println!("Starting CSV processing...");
     for result in rdr.records() {
-        let record = result.map_err(|e| e.to_string())?;
+        row_count += 1;
+        // println!("Processing row {}", row_count);
+
+        let record = match result {
+            Ok(r) => r,
+            Err(e) => {
+                println!("Error reading CSV row {}: {}", row_count, e);
+                return Err(e.to_string());
+            }
+        };
+
+        //// println!("Row {}: {:?}", row_count, record);
 
         // Convert record to SQL values
         let values: Vec<String> = record
@@ -257,7 +270,10 @@ async fn csv_to_sqlite(
             })
             .collect();
 
+        //// println!("Row {} values: {:?}", row_count, values);
+
         batch.push(format!("({})", values.join(", ")));
+        ////println!("Current batch size: {}", batch.len());
 
         // Execute batch when size is reached
         if batch.len() >= batch_size {
