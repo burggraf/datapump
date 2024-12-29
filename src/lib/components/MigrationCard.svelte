@@ -35,7 +35,7 @@
 		await invoke("append_to_file", { filePath: "test_append.txt", text: "hello world\n" });
 	};
 	const test = async () => {
-		const ts = +new Date();
+		let ts = +new Date();
 		// Setup event listener
 		console.log("listening for migration_progress");
 		const unlisten = await listen<ProgressEvent>("migration_progress", (event) => {
@@ -52,21 +52,49 @@
 			totalRows = event.payload.total_rows;
 			batchSize = event.payload.batch_size;
 			status = event.payload.status;
-			console.log("time elapsed", (+new Date() - ts) / 1000, "seconds");
-			const rps = processedRows / ((+new Date() - ts) / 1000);
-			console.log("records per second", processedRows / ((+new Date() - ts) / 1000));
+			const elapsed = (+new Date() - ts) / 1000;
+			console.log("time elapsed", elapsed, "seconds");
+			const rps = processedRows / elapsed;
+			console.log("records per second", processedRows / elapsed);
 			// calculate estimated time remaining
 			const timeRemaining = (totalRows - processedRows) / rps;
 			// display time remaining in minutes:seconds format
-			console.log(
-				"time remaining",
-				timeRemaining,
-				" total seconds",
-				Math.floor(timeRemaining / 60),
-				"minutes",
-				Math.floor(timeRemaining % 60),
-				"seconds"
-			);
+			switch (status) {
+				case "counting_rows":
+					console.log("counting rows");
+					break;
+				case "counted_rows":
+					console.log("counted rows");
+					console.log(elapsed, "seconds elapsed");
+					console.log("restarting timer...");
+					ts = +new Date();
+					break;
+				case "processing":
+					console.log(
+						"time remaining",
+						timeRemaining,
+						" total seconds",
+						Math.floor(timeRemaining / 60),
+						"minutes",
+						Math.floor(timeRemaining % 60),
+						"seconds"
+					);
+					break;
+				case "completed":
+					console.log("completed");
+					console.log(
+						"time remaining",
+						timeRemaining,
+						" total seconds",
+						Math.floor(timeRemaining / 60),
+						"minutes",
+						Math.floor(timeRemaining % 60),
+						"seconds"
+					);
+					break;
+				default:
+					console.log("unknown status");
+			}
 		});
 
 		try {

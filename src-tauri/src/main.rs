@@ -349,6 +349,17 @@ async fn csv_to_sqlite(
     println!("Transaction started successfully");
 
     println!("Counting total rows...");
+    let _ = window.emit(
+        "migration_progress",
+        ProgressEvent {
+            total_rows: 0,
+            processed_rows: 0,
+            row_count: 0,
+            batch_size: 0,
+            status: "counting_rows".to_string(),
+        },
+    );
+
     let file = std::fs::File::open(&file_path).map_err(|e| {
         println!("Failed to open CSV file for row count: {}", e);
         e.to_string()
@@ -357,6 +368,17 @@ async fn csv_to_sqlite(
 
     let total_rows = reader.lines().count();
     println!("Total rows to process: {}", total_rows);
+
+    let _ = window.emit(
+        "migration_progress",
+        ProgressEvent {
+            total_rows,
+            processed_rows: 0,
+            row_count: 0,
+            batch_size: 0,
+            status: "counted_rows".to_string(),
+        },
+    );
     let mut processed_rows = 0;
     let mut row_count = 0;
     let batch_size = batch_size; // Use the user-provided batch size
