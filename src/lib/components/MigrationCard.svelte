@@ -19,6 +19,7 @@
 	let status = $state("idle");
 	let timeRemainingDisplay = $state("");
 	let tableName = $state<string>("");
+	let dbPath = $state("");
 	let cancellationRequested = $state(false);
 
 	$effect(() => {
@@ -174,7 +175,7 @@
 				batchSize: 50000,
 				schema: schema,
 				tableName: tableName,
-				dbPath: "/Users/markb/Downloads/retrosheet_event_02.db"
+				dbPath
 			});
 			console.log("result", result);
 		} catch (error) {
@@ -237,6 +238,33 @@
 					spellcheck="false"
 					autocorrect="off"
 				/>
+			</div>
+			<div class="mt-4 flex items-center">
+				<label for="dbPath" class="mr-2 w-32 text-sm font-medium text-gray-700">Output Path:</label>
+				<Input
+					type="text"
+					id="dbPath"
+					bind:value={dbPath}
+					placeholder="Enter output path"
+					class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+					autocomplete="off"
+					autocapitalize="off"
+					spellcheck="false"
+					autocorrect="off"
+				/>
+				<Button
+					class="ml-2"
+					onclick={async () => {
+						try {
+							const path = await invoke<string>("open_file_dialog", {});
+							dbPath = path;
+						} catch (error) {
+							console.error("Error selecting file:", error);
+						}
+					}}
+				>
+					Choose File
+				</Button>
 			</div>
 		</div>
 		<br />
