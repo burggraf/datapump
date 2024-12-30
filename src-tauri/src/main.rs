@@ -50,7 +50,8 @@ fn main() {
             flat_files::get_real_path,
             flat_files::append_to_file,
             csv_to_sqlite::get_csv_schema,
-            csv_to_sqlite::csv_to_sqlite
+            csv_to_sqlite::csv_to_sqlite,
+            csv_to_sqlite::cancel_migration
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

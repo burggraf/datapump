@@ -19,6 +19,7 @@
 	let status = $state("idle");
 	let timeRemainingDisplay = $state("");
 	let tableName = $state<string>("");
+	let cancellationRequested = $state(false);
 
 	$effect(() => {
 		console.log("tableName:", tableName);
@@ -32,21 +33,42 @@
 		status: string;
 		message?: string;
 	}
+
 	let sourcePath = $state("/Users/markb/dev/boxball/retrosheet_event.tsv");
+
 	const startMigration = async () => {
+		cancellationRequested = false;
 		console.log("selectedSource", selectedSource);
 		if (selectedSource) {
 			await migrate(selectedSource, outputConnectionString);
 		}
 	};
+
+	const cancelMigration = async () => {
+		cancellationRequested = true;
+		status = "cancelling";
+		try {
+			await invoke("cancel_migration");
+			status = "cancelled";
+			message = "Migration cancelled by user";
+		} catch (error) {
+			console.error("Error cancelling migration:", error);
+			status = "error";
+			message = "Failed to cancel migration";
+		}
+	};
+
 	const appendToFile = async () => {
 		await invoke("append_to_file", { filePath: "test_append.txt", text: "hello world\n" });
 	};
+
 	const test = async () => {
 		let ts = +new Date();
 		// Setup event listener
 		console.log("listening for migration_progress");
 		const unlisten = await listen<ProgressEvent>("migration_progress", (event) => {
+			if (cancellationRequested) return;
+
 			console.log("Progress update:", event.payload);
 			processedRows = event.payload.processed_rows;
 			totalRows = event.payload.total_rows;
@@ -197,8 +219,15 @@
 		</div>
 		<br />
 		<Button onclick={test}>test</Button>
-		<Button onclick={startMigration}>Start</Button>
+		<Button onclick={startMigration} disabled={status === "processing"}>Start</Button>
 		<Button onclick={appendToFile}>Append to File</Button>
+		<Button
+			onclick={cancelMigration}
+			disabled={status !== "processing"}
+			class="bg-red-500 hover:bg-red-600"
+		>
+			Cancel
+		</Button>
 		<div class="mt-4 rounded border p-4">
 			<h3 class="mb-2 text-lg font-semibold">Status</h3>
 			<div class="grid grid-cols-2 gap-2">

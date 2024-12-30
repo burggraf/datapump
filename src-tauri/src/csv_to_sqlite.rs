@@ -1,7 +1,11 @@
 use super::csv_schema;
 use serde::{Deserialize, Serialize};
 use std::io::BufRead;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
 use tauri::Emitter;
+
+static CANCELLATION_REQUESTED: OnceLock<AtomicBool> = OnceLock::new();
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProgressEvent {
@@ -11,6 +15,13 @@ pub struct ProgressEvent {
     pub batch_size: usize,
     pub status: String,
     pub message: Option<String>,
+}
+
+#[tauri::command]
+pub async fn cancel_migration() -> Result<(), String> {
+    let flag = CANCELLATION_REQUESTED.get_or_init(|| AtomicBool::new(false));
+    flag.store(true, Ordering::SeqCst);
+    Ok(())
 }
 
 #[tauri::command]
@@ -245,7 +256,30 @@ pub async fn csv_to_sqlite(
 
     // println!("Starting CSV processing...");
     let mut last_logged = 0;
+    // Reset cancellation flag at start
+    if let Some(flag) = CANCELLATION_REQUESTED.get() {
+        flag.store(false, Ordering::SeqCst);
+    }
+
     for result in rdr.records() {
+        // Check for cancellation
+        if let Some(flag) = CANCELLATION_REQUESTED.get() {
+            if flag.load(Ordering::SeqCst) {
+                connection.execute("ROLLBACK").ok();
+                let _ = window.emit(
+                    "migration_progress",
+                    ProgressEvent {
+                        total_rows,
+                        processed_rows,
+                        row_count,
+                        batch_size: 0,
+                        status: "cancelled".to_string(),
+                        message: Some("Migration cancelled by user".to_string()),
+                    },
+                );
+                return Ok(());
+            }
+        }
         row_count += 1;
         processed_rows += 1;
 
