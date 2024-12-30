@@ -63,6 +63,15 @@
 	};
 
 	const test = async () => {
+		// Reset state variables
+		totalRows = 0;
+		processedRows = 0;
+		batchSize = 0;
+		message = "";
+		status = "idle";
+		timeRemainingDisplay = "";
+		cancellationRequested = false;
+
 		let ts = +new Date();
 		// Setup event listener
 		console.log("listening for migration_progress");

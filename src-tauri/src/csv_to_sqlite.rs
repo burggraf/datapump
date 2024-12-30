@@ -277,6 +277,10 @@ pub async fn csv_to_sqlite(
                         message: Some("Migration cancelled by user".to_string()),
                     },
                 );
+                // Reset cancellation flag
+                if let Some(flag) = CANCELLATION_REQUESTED.get() {
+                    flag.store(false, Ordering::SeqCst);
+                }
                 return Ok(());
             }
         }
