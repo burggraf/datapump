@@ -251,7 +251,11 @@ pub async fn csv_to_sqlite(
         println!("Failed to reopen CSV file: {}", e);
         e.to_string()
     })?;
-    let mut rdr = csv::Reader::from_reader(file);
+    let mut rdr = csv::ReaderBuilder::new()
+        .delimiter(b'\t')
+        .has_headers(true)
+        .flexible(true)
+        .from_reader(file);
     // println!("CSV reader reset successfully");
 
     // println!("Starting CSV processing...");
