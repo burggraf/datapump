@@ -17,6 +17,11 @@
 	let batchSize = $state(0);
 	let message = $state("");
 	let status = $state("idle");
+	let tableName = $state<string>("");
+
+	$effect(() => {
+		console.log("tableName:", tableName);
+	});
 
 	interface ProgressEvent {
 		processed_rows: number;
@@ -157,6 +162,18 @@
 				value={sourcePath}
 				class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 			/>
+			<div class="mt-4 flex items-center">
+				<label for="tableName" class="mr-2 w-32 text-sm font-medium text-gray-700"
+					>Table Name:</label
+				>
+				<Input
+					type="text"
+					id="tableName"
+					value={tableName}
+					placeholder="Enter table name"
+					class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+				/>
+			</div>
 		</div>
 		<br />
 		<Button onclick={test}>test</Button>
