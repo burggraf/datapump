@@ -84,17 +84,6 @@ pub async fn csv_to_sqlite(
     if table_name.is_empty() {
         return Err("Table name cannot be empty".to_string());
     }
-    if !table_name
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '_')
-    {
-        return Err(
-            "Table name must contain only alphanumeric characters and underscores".to_string(),
-        );
-    }
-    if table_name.chars().next().unwrap().is_ascii_digit() {
-        return Err("Table name cannot start with a digit".to_string());
-    }
 
     // println!("Parameters validated successfully");
 
