@@ -7,9 +7,7 @@ mod postgres;
 
 use postgres::QueryResult;
 use serde::{Deserialize, Serialize};
-use std::fs::OpenOptions;
-use std::io::{BufRead, Write};
-use std::path;
+use std::io::BufRead;
 use tauri::Emitter;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -54,23 +52,8 @@ async fn execute_sqlite_query(
     Ok(QueryResult { columns, rows })
 }
 
-#[tauri::command]
-async fn get_real_path(file_path: String) -> Result<String, String> {
-    let absolute_path = path::absolute(file_path).map_err(|e| e.to_string())?;
-    Ok(absolute_path.to_string_lossy().to_string())
-}
-
-#[tauri::command]
-async fn append_to_file(file_path: String, text: String) -> Result<(), String> {
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(file_path)
-        .map_err(|e| e.to_string())?;
-
-    file.write_all(text.as_bytes()).map_err(|e| e.to_string())?;
-    Ok(())
-}
+#[macro_use]
+mod flat_files;
 
 #[tauri::command]
 async fn get_csv_schema(window: tauri::Window, file_path: String) -> Result<String, String> {
@@ -110,8 +93,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             postgres::execute_postgres_query,
             execute_sqlite_query,
-            get_real_path,
-            append_to_file,
+            flat_files::get_real_path,
+            flat_files::append_to_file,
             get_csv_schema,
             csv_to_sqlite
         ])
