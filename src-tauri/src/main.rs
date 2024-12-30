@@ -39,11 +39,31 @@ async fn execute_sqlite_query(
     Ok(QueryResult { columns, rows })
 }
 
+use tauri_plugin_dialog::DialogExt;
+
+use tokio::sync::oneshot;
+
+#[tauri::command]
+async fn open_file_dialog(app_handle: tauri::AppHandle) -> Result<String, String> {
+    let (tx, rx) = oneshot::channel();
+
+    app_handle.dialog().file().pick_file(move |path| {
+        let _ = tx.send(path.map(|p| p.to_string()));
+    });
+
+    match rx.await {
+        Ok(Some(path)) => Ok(path),
+        Ok(None) => Err("No file selected".to_string()),
+        Err(_) => Err("Failed to receive file path".to_string()),
+    }
+}
+
 #[macro_use]
 mod flat_files;
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             postgres::execute_postgres_query,
             execute_sqlite_query,
@@ -51,7 +71,8 @@ fn main() {
             flat_files::append_to_file,
             csv_to_sqlite::get_csv_schema,
             csv_to_sqlite::csv_to_sqlite,
-            csv_to_sqlite::cancel_migration
+            csv_to_sqlite::cancel_migration,
+            open_file_dialog
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

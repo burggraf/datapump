@@ -208,6 +208,19 @@
 					autocorrect="off"
 					class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 				/>
+				<Button
+					class="ml-2"
+					onclick={async () => {
+						try {
+							const path = await invoke<string>("open_file_dialog", {});
+							sourcePath = path;
+						} catch (error) {
+							console.error("Error selecting file:", error);
+						}
+					}}
+				>
+					Choose File
+				</Button>
 			</div>
 			<div class="mt-4 flex items-center">
 				<label for="tableName" class="mr-2 w-32 text-sm font-medium text-gray-700"
