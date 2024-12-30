@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from "svelte";
 	import { Button } from "$lib/components/ui/button";
 	import { Input } from "$lib/components/ui/input";
 	import * as Card from "$lib/components/ui/card";
@@ -25,6 +26,33 @@
 
 	$effect(() => {
 		console.log("tableName:", tableName);
+	});
+
+	onMount(() => {
+		const storedSourcePath = localStorage.getItem("sourcePath");
+		if (storedSourcePath) {
+			sourcePath = storedSourcePath;
+		}
+		const storedDbPath = localStorage.getItem("dbPath");
+		if (storedDbPath) {
+			dbPath = storedDbPath;
+		}
+		const storedTableName = localStorage.getItem("tableName");
+		if (storedTableName) {
+			tableName = storedTableName;
+		}
+	});
+
+	$effect(() => {
+		localStorage.setItem("sourcePath", sourcePath);
+	});
+
+	$effect(() => {
+		localStorage.setItem("dbPath", dbPath);
+	});
+
+	$effect(() => {
+		localStorage.setItem("tableName", tableName);
 	});
 
 	interface ProgressEvent {
