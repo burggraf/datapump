@@ -87,8 +87,10 @@
 </script>
 
 <Header />
+<!--<div class="flex gap-4 p-4">-->
 
-<div class="flex gap-4 p-4">
+<div class="p-4">
+	<!--
 	<div style="width: 50%;">
 		<InputSourceCard bind:sourcePath bind:schema bind:fileError bind:selectedSource />
 		<OutputSourceCard
@@ -99,9 +101,10 @@
 			ocsHost={ocsHost()}
 			ocsPort={ocsPort()}
 			ocsDatabase={ocsDatabase()}
-		/>
 	</div>
 	<div style="width: 50%;">
-		<MigrationCard {selectedSource} {outputConnectionString} />
-	</div>
+			/>-->
+
+	<MigrationCard {selectedSource} {outputConnectionString} />
+	<!--</div>-->
 </div>
