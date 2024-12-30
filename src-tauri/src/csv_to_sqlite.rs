@@ -152,7 +152,7 @@ pub async fn csv_to_sqlite(
         table_name,
         columns
             .iter()
-            .map(|(name, typ)| format!("{} {}", name, typ))
+            .map(|(name, typ)| format!("\"{}\" {}", name, typ))
             .collect::<Vec<_>>()
             .join(", ")
     );
@@ -167,7 +167,7 @@ pub async fn csv_to_sqlite(
     let placeholders = columns.iter().map(|_| "?").collect::<Vec<_>>().join(",");
     let column_names = columns
         .iter()
-        .map(|(name, _)| name.clone())
+        .map(|(name, _)| format!("\"{}\"", name))
         .collect::<Vec<_>>()
         .join(",");
     let insert_sql = format!(
@@ -246,15 +246,34 @@ pub async fn csv_to_sqlite(
     let mut row_count = 0;
     let batch_size = batch_size; // Use the user-provided batch size
 
-    // println!("Resetting CSV reader...");
+    // Detect delimiter by analyzing first line
+    let file = std::fs::File::open(&file_path).map_err(|e| {
+        println!("Failed to reopen CSV file: {}", e);
+        e.to_string()
+    })?;
+    let mut reader = std::io::BufReader::new(file);
+    let mut first_line = String::new();
+    reader.read_line(&mut first_line).map_err(|e| {
+        println!("Failed to read first line: {}", e);
+        e.to_string()
+    })?;
+
+    // Count commas and tabs in first line
+    let comma_count = first_line.matches(',').count();
+    let tab_count = first_line.matches('\t').count();
+
+    // Use tab delimiter if more tabs than commas, otherwise use comma
+    let delimiter = if tab_count > comma_count { b'\t' } else { b',' };
+
+    // Reset file reader
     let file = std::fs::File::open(&file_path).map_err(|e| {
         println!("Failed to reopen CSV file: {}", e);
         e.to_string()
     })?;
     let mut rdr = csv::ReaderBuilder::new()
-        .delimiter(b'\t')
+        .delimiter(delimiter)
         .has_headers(true)
-        .flexible(true)
+        .flexible(false)
         .from_reader(file);
     // println!("CSV reader reset successfully");
 
