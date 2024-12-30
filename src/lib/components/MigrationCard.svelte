@@ -17,6 +17,7 @@
 	let batchSize = $state(0);
 	let message = $state("");
 	let status = $state("idle");
+	let timeRemainingDisplay = $state("");
 	let tableName = $state<string>("");
 
 	$effect(() => {
@@ -55,7 +56,12 @@
 			const elapsed = (+new Date() - ts) / 1000;
 			const rps = processedRows / elapsed;
 			// calculate estimated time remaining
-			const timeRemaining = (totalRows - processedRows) / rps;
+			let timeRemaining = (totalRows - processedRows) / rps;
+			if (timeRemaining > 0 && isFinite(timeRemaining)) {
+				const minutes = Math.floor(timeRemaining / 60);
+				const seconds = Math.floor(timeRemaining % 60);
+				timeRemainingDisplay = `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
+			}
 			// display time remaining in minutes:seconds format
 			switch (status) {
 				case "parsing_schema_start":
@@ -193,5 +199,20 @@
 		<Button onclick={test}>test</Button>
 		<Button onclick={startMigration}>Start</Button>
 		<Button onclick={appendToFile}>Append to File</Button>
+		<div class="mt-4 rounded border p-4">
+			<h3 class="mb-2 text-lg font-semibold">Status</h3>
+			<div class="grid grid-cols-2 gap-2">
+				<div>Status:</div>
+				<div>{status}</div>
+				<div>Total Rows:</div>
+				<div>{totalRows}</div>
+				<div>Processed:</div>
+				<div>{processedRows}</div>
+				<div>Pct. Completed:</div>
+				<div>{totalRows > 0 ? Math.round((processedRows / totalRows) * 100) : 0}%</div>
+				<div>Est. Time Remaining:</div>
+				<div>{timeRemainingDisplay}</div>
+			</div>
+		</div>
 	</Card.Content>
 </Card.Root>
