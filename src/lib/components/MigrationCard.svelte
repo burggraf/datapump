@@ -113,7 +113,7 @@
 
 		try {
 			console.log("invoking get_csv_schema");
-			const schema = await invoke("get_csv_schema", { filePath: sourcePath });
+			const schema = await invoke("get_csv_schema", { filePath: sourcePath, tableName });
 			console.log("schema", schema);
 			console.log("schema", typeof schema);
 
@@ -136,6 +136,7 @@
 				filePath: sourcePath,
 				batchSize: 50000,
 				schema: schema,
+				tableName: tableName,
 				dbPath: "/Users/markb/Downloads/retrosheet_event_02.db"
 			});
 			console.log("result", result);
@@ -174,7 +175,7 @@
 				<Input
 					type="text"
 					id="tableName"
-					value={tableName}
+					bind:value={tableName}
 					placeholder="Enter table name"
 					class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 				/>

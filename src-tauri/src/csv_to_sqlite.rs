@@ -53,6 +53,7 @@ pub async fn csv_to_sqlite(
     batch_size: usize,
     schema: String,
     db_path: String,
+    table_name: String,
 ) -> Result<(), String> {
     // println!("Validating parameters...");
     if !std::path::Path::new(&file_path).exists() {
@@ -67,6 +68,23 @@ pub async fn csv_to_sqlite(
         println!("Empty schema provided");
         return Err("Schema cannot be empty".to_string());
     }
+
+    // Validate table name
+    if table_name.is_empty() {
+        return Err("Table name cannot be empty".to_string());
+    }
+    if !table_name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_')
+    {
+        return Err(
+            "Table name must contain only alphanumeric characters and underscores".to_string(),
+        );
+    }
+    if table_name.chars().next().unwrap().is_ascii_digit() {
+        return Err("Table name cannot start with a digit".to_string());
+    }
+
     // println!("Parameters validated successfully");
 
     // println!("Parsing schema...");
@@ -118,9 +136,8 @@ pub async fn csv_to_sqlite(
     // println!("Synchronous mode set successfully");
 
     // !("Creating table...");
-    let table_name = "imported_data";
     let create_table_sql = format!(
-        "CREATE TABLE IF NOT EXISTS {} ({})",
+        "CREATE TABLE IF NOT EXISTS \"{}\" ({})",
         table_name,
         columns
             .iter()
@@ -143,7 +160,7 @@ pub async fn csv_to_sqlite(
         .collect::<Vec<_>>()
         .join(",");
     let insert_sql = format!(
-        "INSERT INTO {} ({}) VALUES ({})",
+        "INSERT INTO \"{}\" ({}) VALUES ({})",
         table_name, column_names, placeholders
     );
     // println!("Insert SQL: {}", insert_sql);
