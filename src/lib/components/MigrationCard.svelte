@@ -165,6 +165,10 @@
 					type="text"
 					id="filePath"
 					value={sourcePath}
+					autocomplete="off"
+					autocapitalize="off"
+					spellcheck="false"
+					autocorrect="off"
 					class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 				/>
 			</div>
@@ -178,6 +182,10 @@
 					bind:value={tableName}
 					placeholder="Enter table name"
 					class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+					autocomplete="off"
+					autocapitalize="off"
+					spellcheck="false"
+					autocorrect="off"
 				/>
 			</div>
 		</div>
