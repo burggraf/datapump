@@ -17,6 +17,7 @@
 	let batchSize = $state(0);
 	let message = $state("");
 	let status = $state("idle");
+	let rows_per_second = $state(0);
 	let timeRemainingDisplay = $state("");
 	let tableName = $state<string>("");
 	let dbPath = $state("");
@@ -35,7 +36,7 @@
 		message?: string;
 	}
 
-	let sourcePath = $state("/Users/markb/dev/boxball/retrosheet_event.tsv");
+	let sourcePath = $state("");
 
 	const startMigration = async () => {
 		cancellationRequested = false;
@@ -87,6 +88,7 @@
 			message = event.payload.message || "";
 			const elapsed = (+new Date() - ts) / 1000;
 			const rps = processedRows / elapsed;
+			rows_per_second = Math.round(processedRows / elapsed);
 			// calculate estimated time remaining
 			let timeRemaining = (totalRows - processedRows) / rps;
 			if (timeRemaining > 0 && isFinite(timeRemaining)) {
@@ -289,6 +291,8 @@
 				<div>{processedRows}</div>
 				<div>Pct. Completed:</div>
 				<div>{totalRows > 0 ? Math.round((processedRows / totalRows) * 100) : 0}%</div>
+				<div>Rows per Second:</div>
+				<div>{rows_per_second}</div>
 				<div>Est. Time Remaining:</div>
 				<div>{timeRemainingDisplay}</div>
 			</div>
