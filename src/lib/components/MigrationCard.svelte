@@ -156,12 +156,17 @@
 	</Card.Header>
 	<Card.Content class="gap-2">
 		<div class="block w-full">
-			<Input
-				type="text"
-				id="filePath"
-				value={sourcePath}
-				class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-			/>
+			<div class="mt-1 flex items-center">
+				<label for="filePath" class="mr-2 w-32 text-sm font-medium text-gray-700"
+					>Source Path:</label
+				>
+				<Input
+					type="text"
+					id="filePath"
+					value={sourcePath}
+					class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+				/>
+			</div>
 			<div class="mt-4 flex items-center">
 				<label for="tableName" class="mr-2 w-32 text-sm font-medium text-gray-700"
 					>Table Name:</label
