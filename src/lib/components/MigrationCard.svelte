@@ -65,6 +65,14 @@
 	}
 
 	let sourcePath = $state("");
+	let tableNameFromPath = $derived(() => {
+		if (!sourcePath) return "";
+		const filename = sourcePath.split("/").pop() || "";
+		return filename.replace(/\.[^/.]+$/, "");
+	});
+	$effect(() => {
+		tableName = tableNameFromPath();
+	});
 
 	const startMigration = async () => {
 		cancellationRequested = false;
