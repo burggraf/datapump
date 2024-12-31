@@ -245,7 +245,7 @@
 		{/if}
 		<div class="mt-4 rounded border p-4">
 			<h3 class="mb-2 text-lg font-semibold">Status</h3>
-			<div class="grid grid-cols-2 gap-2">
+			<div class="grid grid-cols-[25%_75%] gap-2">
 				<div>Status:</div>
 				<div>{status}</div>
 				<div>Total Rows:</div>
