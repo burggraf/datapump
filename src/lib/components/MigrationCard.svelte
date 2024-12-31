@@ -234,9 +234,7 @@
 	<Card.Content class="gap-2">
 		<div class="block w-full">
 			<div class="mt-1 flex items-center">
-				<label for="filePath" class="mr-2 w-32 text-sm font-medium text-gray-700"
-					>Source Path:</label
-				>
+				<label for="filePath" class="mr-2 w-32 text-sm font-medium text-gray-700">Source:</label>
 				<Input
 					type="text"
 					id="filePath"
@@ -262,23 +260,7 @@
 				</Button>
 			</div>
 			<div class="mt-4 flex items-center">
-				<label for="tableName" class="mr-2 w-32 text-sm font-medium text-gray-700"
-					>Table Name:</label
-				>
-				<Input
-					type="text"
-					id="tableName"
-					bind:value={tableName}
-					placeholder="Enter table name"
-					class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-					autocomplete="off"
-					autocapitalize="off"
-					spellcheck="false"
-					autocorrect="off"
-				/>
-			</div>
-			<div class="mt-4 flex items-center">
-				<label for="dbPath" class="mr-2 w-32 text-sm font-medium text-gray-700">Output Path:</label>
+				<label for="dbPath" class="mr-2 w-32 text-sm font-medium text-gray-700">Output:</label>
 				<Input
 					type="text"
 					id="dbPath"
@@ -303,6 +285,20 @@
 				>
 					Choose File
 				</Button>
+			</div>
+			<div class="mt-4 flex items-center">
+				<label for="tableName" class="mr-2 w-32 text-sm font-medium text-gray-700">Table:</label>
+				<Input
+					type="text"
+					id="tableName"
+					bind:value={tableName}
+					placeholder="Enter table name"
+					class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+					autocomplete="off"
+					autocapitalize="off"
+					spellcheck="false"
+					autocorrect="off"
+				/>
 			</div>
 		</div>
 		<br />
