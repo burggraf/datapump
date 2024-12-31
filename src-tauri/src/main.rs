@@ -5,6 +5,7 @@ mod commands;
 mod csv_reader;
 mod csv_schema;
 mod postgres;
+mod postgres_writer;
 mod sqlite_writer;
 
 use postgres::QueryResult;
