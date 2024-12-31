@@ -102,11 +102,9 @@
 
 		let ts = +new Date();
 		// Setup event listener
-		console.log("listening for migration_progress");
 		const unlisten = await listen<ProgressEvent>("migration_progress", (event) => {
 			if (cancellationRequested) return;
 
-			console.log("Progress update:", event.payload);
 			processedRows = event.payload.processed_rows;
 			totalRows = event.payload.total_rows;
 			batchSize = event.payload.batch_size;
@@ -122,80 +120,25 @@
 				const seconds = Math.floor(timeRemaining % 60);
 				timeRemainingDisplay = `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
 			}
-			// display time remaining in minutes:seconds format
-			switch (status) {
-				case "parsing_schema_start":
-					console.log("parsing schema start");
-					if (message) console.log("message:", message);
-					break;
-				case "parsing_schema_complete":
-					console.log("***************************");
-					console.log("parsing schema complete");
-					console.log(elapsed, "seconds elapsed");
-					if (message) console.log("message:", message);
-					console.log("***************************");
-					ts = +new Date();
-					break;
-				case "counting_rows":
-					console.log("counting rows");
-					if (message) console.log("message:", message);
-					break;
-				case "counted_rows":
-					console.log("***************************");
-					console.log("counted rows");
-					console.log(elapsed, "seconds elapsed");
-					if (message) console.log("message:", message);
-					console.log("***************************");
-					ts = +new Date();
-					break;
-				case "processing":
-					console.log(
-						"time remaining",
-						Math.floor(timeRemaining / 60),
-						"minutes",
-						Math.floor(timeRemaining % 60),
-						"seconds",
-						"(" + Math.round(rps) + " records per second)"
-					);
-					if (message) console.log("message:", message);
-					break;
-				case "completed":
-					console.log("***************************");
-					console.log("completed");
-					console.log(
-						Math.floor(timeRemaining / 60),
-						"minutes",
-						Math.floor(timeRemaining % 60),
-						"seconds"
-					);
-					if (message) console.log("message:", message);
-					console.log("***************************");
-					break;
-				default:
-					console.log("unknown status:", status);
-					if (message) console.log("message:", message);
+			if (status === "parsing_schema_complete" || status === "counted_rows") {
+				ts = +new Date();
 			}
 		});
 
 		try {
-			console.log("invoking get_csv_schema");
 			const schema = await invoke("get_csv_schema", { filePath: sourcePath, tableName });
-			console.log("schema", schema);
-			console.log("schema", typeof schema);
 
 			if (typeof schema !== "string") {
 				throw new Error("Invalid schema format: expected string");
 			}
 
 			const schemaParts = schema.split(",");
-			console.log("schema parts:", schemaParts);
 
 			// Validate schema format
 			if (!schemaParts.every((part) => part.includes(":"))) {
 				throw new Error("Invalid schema format: each part should be in 'name:type' format");
 			}
 
-			console.log("invoking csv_to_sqlite");
 			const window = getCurrentWindow();
 			const result = await invoke("csv_to_sqlite", {
 				window,
@@ -205,7 +148,6 @@
 				tableName: tableName,
 				dbPath
 			});
-			console.log("result", result);
 		} catch (error) {
 			console.error("Error during CSV to SQLite migration:", error);
 			migrationInProgress = false;
