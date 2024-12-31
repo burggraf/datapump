@@ -142,6 +142,7 @@
 			});
 		} catch (error) {
 			console.error("Error during CSV to SQLite migration:", error);
+			status = "Error: " + (error as string) || "ERROR";
 			migrationInProgress = false;
 			throw error;
 		} finally {
