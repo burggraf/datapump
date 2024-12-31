@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from "$lib/components/ui/button";
 	import { Input } from "$lib/components/ui/input";
+	import ChooseDatabase from "./ChooseDatabase.svelte";
 	import * as Card from "$lib/components/ui/card";
 	import { invoke } from "@tauri-apps/api/core";
 	import { listen } from "@tauri-apps/api/event";
@@ -233,6 +234,7 @@
 		<br />
 		{#if !migrationInProgress}
 			<Button onclick={startMigration}>Start Migration</Button>
+			<ChooseDatabase />
 		{/if}
 		{#if migrationInProgress}
 			<Button
