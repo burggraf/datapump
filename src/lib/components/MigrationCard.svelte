@@ -3,191 +3,10 @@
 	import { Input } from "$lib/components/ui/input";
 	import ChooseDatabase from "./ChooseDatabase.svelte";
 	import * as Card from "$lib/components/ui/card";
-	import { invoke } from "@tauri-apps/api/core";
-	import { listen } from "@tauri-apps/api/event";
-	import { getCurrentWindow } from "@tauri-apps/api/window";
 	import SourceTypeSelect from "./SourceTypeSelect.svelte";
+	import MigrationCard from "./MigrationCardCode.svelte";
 
-	let totalRows = $state(0);
-	let processedRows = $state(0);
-	let batchSize = $state(0);
-	let message = $state("");
-	let status = $state("idle");
-	let rows_per_second = $state(0);
-	let timeRemainingDisplay = $state("");
-
-	let cancellationRequested = $state(false);
-	let migrationInProgress = $state(false);
-
-	let sourceType = $state("csv_tsv");
-	let sourcePath = $state("");
-	let sourceUser = $state("");
-	let sourcePassword = $state("");
-	let sourceHost = $state("");
-	let sourcePort = $state("");
-	let sourceDatabaseName = $state("");
-	let destinationType = $state("sqlite");
-	let destinationPath = $state("");
-	let destinationUser = $state("");
-	let destinationPassword = $state("");
-	let destinationHost = $state("");
-	let destinationPort = $state("");
-	let destinationDatabaseName = $state("");
-
-	let tableName = $state<string>("");
-
-	$effect(() => {
-		const storedSourcePath = localStorage.getItem("sourcePath");
-		if (storedSourcePath) sourcePath = storedSourcePath;
-		const storedDestinationPath = localStorage.getItem("destinationPath");
-		if (storedDestinationPath) destinationPath = storedDestinationPath;
-		const storedTableName = localStorage.getItem("tableName");
-		if (storedTableName) tableName = storedTableName;
-		const storedSourceType = localStorage.getItem("sourceType");
-		if (storedSourceType) sourceType = storedSourceType;
-		const storedSourceUser = localStorage.getItem("sourceUser");
-		if (storedSourceUser) sourceUser = storedSourceUser;
-		const storedSourcePassword = localStorage.getItem("sourcePassword");
-		if (storedSourcePassword) sourcePassword = storedSourcePassword;
-		const storedSourceHost = localStorage.getItem("sourceHost");
-		if (storedSourceHost) sourceHost = storedSourceHost;
-		const storedSourcePort = localStorage.getItem("sourcePort");
-		if (storedSourcePort) sourcePort = storedSourcePort;
-		const storedSourceDatabaseName = localStorage.getItem("sourceDatabaseName");
-		if (storedSourceDatabaseName) sourceDatabaseName = storedSourceDatabaseName;
-		const storedDestinationType = localStorage.getItem("destinationType");
-		if (storedDestinationType) destinationType = storedDestinationType;
-		const storedDestinationUser = localStorage.getItem("destinationUser");
-		if (storedDestinationUser) destinationUser = storedDestinationUser;
-		const storedDestinationPassword = localStorage.getItem("destinationPassword");
-		if (storedDestinationPassword) destinationPassword = storedDestinationPassword;
-		const storedDestinationHost = localStorage.getItem("destinationHost");
-		if (storedDestinationHost) destinationHost = storedDestinationHost;
-		const storedDestinationPort = localStorage.getItem("destinationPort");
-		if (storedDestinationPort) destinationPort = storedDestinationPort;
-		const storedDestinationDatabaseName = localStorage.getItem("destinationDatabaseName");
-		if (storedDestinationDatabaseName) destinationDatabaseName = storedDestinationDatabaseName;
-	});
-
-	$effect(() => {
-		localStorage.setItem("sourcePath", sourcePath);
-		localStorage.setItem("destinationPath", destinationPath);
-		localStorage.setItem("tableName", tableName);
-		localStorage.setItem("sourceType", sourceType);
-		localStorage.setItem("sourceUser", sourceUser);
-		localStorage.setItem("sourcePassword", sourcePassword);
-		localStorage.setItem("sourceHost", sourceHost);
-		localStorage.setItem("sourcePort", sourcePort);
-		localStorage.setItem("sourceDatabaseName", sourceDatabaseName);
-		localStorage.setItem("destinationType", destinationType);
-		localStorage.setItem("destinationUser", destinationUser);
-		localStorage.setItem("destinationPassword", destinationPassword);
-		localStorage.setItem("destinationHost", destinationHost);
-		localStorage.setItem("destinationPort", destinationPort);
-		localStorage.setItem("destinationDatabaseName", destinationDatabaseName);
-		tableName = tableNameFromPath();
-	});
-	let tableNameFromPath = $derived(() => {
-		if (!sourcePath) return "";
-		const filename = sourcePath.split("/").pop() || "";
-		return filename.replace(/\.[^/.]+$/, "");
-	});
-
-	interface ProgressEvent {
-		processed_rows: number;
-		row_count: number;
-		total_rows: number;
-		batch_size: number;
-		status: string;
-		message?: string;
-	}
-
-	const cancelMigration = async () => {
-		cancellationRequested = true;
-		status = "cancelling";
-		try {
-			await invoke("cancel_migration");
-			status = "cancelled";
-			message = "Migration cancelled by user";
-			migrationInProgress = false;
-		} catch (error) {
-			console.error("Error cancelling migration:", error);
-			status = "error";
-			message = "Failed to cancel migration";
-			migrationInProgress = false;
-		}
-	};
-
-	const startMigration = async () => {
-		// Reset state variables
-		totalRows = 0;
-		processedRows = 0;
-		batchSize = 0;
-		message = "";
-		status = "idle";
-		timeRemainingDisplay = "";
-		cancellationRequested = false;
-		migrationInProgress = true;
-
-		let ts = +new Date();
-		// Setup event listener
-		const unlisten = await listen<ProgressEvent>("migration_progress", (event) => {
-			if (cancellationRequested) return;
-
-			processedRows = event.payload.processed_rows;
-			totalRows = event.payload.total_rows;
-			batchSize = event.payload.batch_size;
-			status = event.payload.status;
-			message = event.payload.message || "";
-			const elapsed = (+new Date() - ts) / 1000;
-			const rps = processedRows / elapsed;
-			rows_per_second = Math.round(processedRows / elapsed);
-			// calculate estimated time remaining
-			let timeRemaining = (totalRows - processedRows) / rps;
-			if (timeRemaining > 0 && isFinite(timeRemaining)) {
-				const minutes = Math.floor(timeRemaining / 60);
-				const seconds = Math.floor(timeRemaining % 60);
-				timeRemainingDisplay = `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
-			}
-			if (status === "parsing_schema_complete" || status === "counted_rows") {
-				ts = +new Date();
-			}
-		});
-
-		try {
-			const schema = await invoke("get_csv_schema", { filePath: sourcePath, tableName });
-
-			if (typeof schema !== "string") {
-				throw new Error("Invalid schema format: expected string");
-			}
-
-			const schemaParts = schema.split(",");
-
-			// Validate schema format
-			if (!schemaParts.every((part) => part.includes(":"))) {
-				throw new Error("Invalid schema format: each part should be in 'name:type' format");
-			}
-
-			const window = getCurrentWindow();
-			const result = await invoke("csv_to_sqlite", {
-				window,
-				filePath: sourcePath,
-				batchSize: 50000,
-				schema: schema,
-				tableName: tableName,
-				destinationPath
-			});
-		} catch (error) {
-			console.error("Error during CSV to SQLite migration:", error);
-			status = "Error: " + (error as string) || "ERROR";
-			migrationInProgress = false;
-			throw error;
-		} finally {
-			// Clean up event listener
-			unlisten();
-			migrationInProgress = false;
-		}
-	};
+	const migrationCard = new MigrationCard();
 </script>
 
 <Card.Root class="h-full">
@@ -199,25 +18,25 @@
 		<div class="block w-full">
 			<div class="mt-1 flex items-center">
 				<label for="filePath" class="mr-2 w-32 text-sm font-medium text-gray-700">Source:</label>
-				<SourceTypeSelect bind:selectedValue={sourceType} class="ml-2 mr-2" />
+				<SourceTypeSelect bind:selectedValue={migrationCard.sourceType} class="ml-2 mr-2" />
 				<Input
 					type="text"
 					id="filePath"
-					value={sourcePath}
+					value={migrationCard.sourcePath}
 					autocomplete="off"
 					autocapitalize="off"
 					spellcheck="false"
 					autocorrect="off"
 					class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 				/>
-				{#if sourceType === "csv_tsv" || sourceType === "sqlite"}
+				{#if migrationCard.sourceType === "csv_tsv" || migrationCard.sourceType === "sqlite"}
 					<Button
 						id="chooseSourceFile"
 						class="ml-2"
 						onclick={async () => {
 							try {
-								const path = await invoke<string>("open_file_dialog", {});
-								sourcePath = path;
+								const path = await migrationCard.invoke<string>("open_file_dialog", {});
+								migrationCard.sourcePath = path;
 							} catch (error) {
 								console.error("Error selecting file:", error);
 							}
@@ -226,13 +45,13 @@
 						Choose File
 					</Button>
 				{/if}
-				{#if sourceType !== "csv_tsv" && sourceType !== "sqlite"}
+				{#if migrationCard.sourceType !== "csv_tsv" && migrationCard.sourceType !== "sqlite"}
 					<ChooseDatabase
-						bind:user={sourceUser}
-						bind:password={sourcePassword}
-						bind:host={sourceHost}
-						bind:port={sourcePort}
-						bind:databaseName={sourceDatabaseName}
+						bind:user={migrationCard.sourceUser}
+						bind:password={migrationCard.sourcePassword}
+						bind:host={migrationCard.sourceHost}
+						bind:port={migrationCard.sourcePort}
+						bind:databaseName={migrationCard.sourceDatabaseName}
 					/>
 				{/if}
 			</div>
@@ -240,11 +59,11 @@
 				<label for="destinationPath" class="mr-2 w-32 text-sm font-medium text-gray-700"
 					>Output:</label
 				>
-				<SourceTypeSelect bind:selectedValue={destinationType} class="ml-2 mr-2" />
+				<SourceTypeSelect bind:selectedValue={migrationCard.destinationType} class="ml-2 mr-2" />
 				<Input
 					type="text"
 					id="destinationPath"
-					bind:value={destinationPath}
+					bind:value={migrationCard.destinationPath}
 					placeholder="Enter output path"
 					class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 					autocomplete="off"
@@ -252,14 +71,14 @@
 					spellcheck="false"
 					autocorrect="off"
 				/>
-				{#if destinationType === "csv_tsv" || destinationType === "sqlite"}
+				{#if migrationCard.destinationType === "csv_tsv" || migrationCard.destinationType === "sqlite"}
 					<Button
 						id="chooseDestinationFile"
 						class="ml-2"
 						onclick={async () => {
 							try {
-								const path = await invoke<string>("open_file_dialog", {});
-								destinationPath = path;
+								const path = await migrationCard.invoke<string>("open_file_dialog", {});
+								migrationCard.destinationPath = path;
 							} catch (error) {
 								console.error("Error selecting file:", error);
 							}
@@ -268,13 +87,13 @@
 						Choose File
 					</Button>
 				{/if}
-				{#if destinationType !== "csv_tsv" && destinationType !== "sqlite"}
+				{#if migrationCard.destinationType !== "csv_tsv" && migrationCard.destinationType !== "sqlite"}
 					<ChooseDatabase
-						bind:user={destinationUser}
-						bind:password={destinationPassword}
-						bind:host={destinationHost}
-						bind:port={destinationPort}
-						bind:databaseName={destinationDatabaseName}
+						bind:user={migrationCard.destinationUser}
+						bind:password={migrationCard.destinationPassword}
+						bind:host={migrationCard.destinationHost}
+						bind:port={migrationCard.destinationPort}
+						bind:databaseName={migrationCard.destinationDatabaseName}
 					/>
 				{/if}
 			</div>
@@ -283,7 +102,7 @@
 				<Input
 					type="text"
 					id="tableName"
-					bind:value={tableName}
+					bind:value={migrationCard.tableName}
 					placeholder="Enter table name"
 					class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 					autocomplete="off"
@@ -294,13 +113,13 @@
 			</div>
 		</div>
 		<br />
-		{#if !migrationInProgress}
-			<Button onclick={startMigration}>Start Migration</Button>
+		{#if !migrationCard.migrationInProgress}
+			<Button onclick={() => migrationCard.startMigration()}>Start Migration</Button>
 		{/if}
-		{#if migrationInProgress}
+		{#if migrationCard.migrationInProgress}
 			<Button
-				onclick={cancelMigration}
-				disabled={status !== "processing"}
+				onclick={() => migrationCard.cancelMigration()}
+				disabled={migrationCard.status !== "processing"}
 				class="bg-red-500 hover:bg-red-600"
 			>
 				Cancel Migration
@@ -310,17 +129,21 @@
 			<h3 class="mb-2 text-lg font-semibold">Status</h3>
 			<div class="grid grid-cols-[25%_75%] gap-2">
 				<div>Status:</div>
-				<div>{status}</div>
+				<div>{migrationCard.status}</div>
 				<div>Total Rows:</div>
-				<div>{totalRows}</div>
+				<div>{migrationCard.totalRows}</div>
 				<div>Processed:</div>
-				<div>{processedRows}</div>
+				<div>{migrationCard.processedRows}</div>
 				<div>Pct. Completed:</div>
-				<div>{totalRows > 0 ? Math.round((processedRows / totalRows) * 100) : 0}%</div>
+				<div>
+					{migrationCard.totalRows > 0
+						? Math.round((migrationCard.processedRows / migrationCard.totalRows) * 100)
+						: 0}%
+				</div>
 				<div>Rows per Second:</div>
-				<div>{rows_per_second}</div>
+				<div>{migrationCard.rows_per_second}</div>
 				<div>Est. Time Remaining:</div>
-				<div>{timeRemainingDisplay}</div>
+				<div>{migrationCard.timeRemainingDisplay}</div>
 			</div>
 		</div>
 	</Card.Content>
