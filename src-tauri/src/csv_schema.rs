@@ -1,6 +1,7 @@
 use csv::{ReaderBuilder, StringRecord};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+// src/csv_schema.rs
 
 pub fn get_csv_schema(file_path: &str) -> Result<String, String> {
     let file = File::open(file_path).map_err(|e| e.to_string())?;

@@ -1,9 +1,11 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod commands;
+mod csv_reader;
 mod csv_schema;
-mod csv_to_sqlite;
 mod postgres;
+mod sqlite_writer;
 
 use postgres::QueryResult;
 
@@ -69,9 +71,9 @@ fn main() {
             execute_sqlite_query,
             flat_files::get_real_path,
             flat_files::append_to_file,
-            csv_to_sqlite::get_csv_schema,
-            csv_to_sqlite::csv_to_sqlite,
-            csv_to_sqlite::cancel_migration,
+            commands::get_csv_schema,
+            commands::csv_to_sqlite,
+            commands::cancel_migration,
             open_file_dialog
         ])
         .run(tauri::generate_context!())
