@@ -77,14 +77,6 @@
 		tableName = tableNameFromPath();
 	});
 
-	const startMigration = async () => {
-		cancellationRequested = false;
-		console.log("selectedSource", selectedSource);
-		if (selectedSource) {
-			await migrate(selectedSource, outputConnectionString);
-		}
-	};
-
 	const cancelMigration = async () => {
 		cancellationRequested = true;
 		status = "cancelling";
@@ -99,11 +91,7 @@
 		}
 	};
 
-	const appendToFile = async () => {
-		await invoke("append_to_file", { filePath: "test_append.txt", text: "hello world\n" });
-	};
-
-	const test = async () => {
+	const startMigration = async () => {
 		// Reset state variables
 		totalRows = 0;
 		processedRows = 0;
@@ -307,15 +295,13 @@
 			</div>
 		</div>
 		<br />
-		<Button onclick={test}>test</Button>
-		<Button onclick={startMigration} disabled={status === "processing"}>Start</Button>
-		<Button onclick={appendToFile}>Append to File</Button>
+		<Button onclick={startMigration}>Start Migration</Button>
 		<Button
 			onclick={cancelMigration}
 			disabled={status !== "processing"}
 			class="bg-red-500 hover:bg-red-600"
 		>
-			Cancel
+			Cancel Migration
 		</Button>
 		<div class="mt-4 rounded border p-4">
 			<h3 class="mb-2 text-lg font-semibold">Status</h3>
