@@ -22,12 +22,9 @@
 	let migrationInProgress = $state(false);
 	let sourceType = $state("csv_tsv");
 	let outputType = $state("sqlite");
+	let sourcePath = $state("");
 
 	$effect(() => {
-		console.log("tableName:", tableName);
-	});
-
-	onMount(() => {
 		const storedSourcePath = localStorage.getItem("sourcePath");
 		if (storedSourcePath) {
 			sourcePath = storedSourcePath;
@@ -41,17 +38,22 @@
 			tableName = storedTableName;
 		}
 	});
-
 	$effect(() => {
 		localStorage.setItem("sourcePath", sourcePath);
 	});
-
 	$effect(() => {
 		localStorage.setItem("dbPath", dbPath);
 	});
-
 	$effect(() => {
 		localStorage.setItem("tableName", tableName);
+	});
+	$effect(() => {
+		tableName = tableNameFromPath();
+	});
+	let tableNameFromPath = $derived(() => {
+		if (!sourcePath) return "";
+		const filename = sourcePath.split("/").pop() || "";
+		return filename.replace(/\.[^/.]+$/, "");
 	});
 
 	interface ProgressEvent {
@@ -62,16 +64,6 @@
 		status: string;
 		message?: string;
 	}
-
-	let sourcePath = $state("");
-	let tableNameFromPath = $derived(() => {
-		if (!sourcePath) return "";
-		const filename = sourcePath.split("/").pop() || "";
-		return filename.replace(/\.[^/.]+$/, "");
-	});
-	$effect(() => {
-		tableName = tableNameFromPath();
-	});
 
 	const cancelMigration = async () => {
 		cancellationRequested = true;
