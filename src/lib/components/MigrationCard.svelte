@@ -52,6 +52,8 @@
 						bind:host={migrationCard.sourceHost}
 						bind:port={migrationCard.sourcePort}
 						bind:databaseName={migrationCard.sourceDatabaseName}
+						bind:sourceType={migrationCard.sourceType}
+						bind:sourcePath={migrationCard.sourcePath}
 					/>
 				{/if}
 			</div>
@@ -94,6 +96,8 @@
 						bind:host={migrationCard.destinationHost}
 						bind:port={migrationCard.destinationPort}
 						bind:databaseName={migrationCard.destinationDatabaseName}
+						bind:destinationType={migrationCard.destinationType}
+						bind:destinationPath={migrationCard.destinationPath}
 					/>
 				{/if}
 			</div>

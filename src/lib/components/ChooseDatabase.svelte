@@ -9,10 +9,28 @@
 		password = $bindable(""),
 		host = $bindable(""),
 		port = $bindable(""),
-		databaseName = $bindable("")
+		databaseName = $bindable(""),
+		sourceType = $bindable(""),
+		destinationType = $bindable(""),
+		sourcePath = $bindable(""),
+		destinationPath = $bindable("")
 	} = $props();
 
 	let showDialog = $state(false);
+
+	function formatConnectionString(
+		type: string,
+		user: string,
+		password: string,
+		host: string,
+		port: string,
+		databaseName: string
+	): string {
+		if (type === "postgres") {
+			return `postgres://${user}:${password}@${host}:${port}/${databaseName}`;
+		}
+		return "";
+	}
 </script>
 
 <Dialog.Root bind:open={showDialog}>
@@ -47,7 +65,32 @@
 			</div>
 		</div>
 		<Dialog.Footer>
-			<Button type="submit" onclick={() => (showDialog = false)}>Save</Button>
+			<Button
+				type="submit"
+				onclick={() => {
+					if (sourceType) {
+						sourcePath = formatConnectionString(
+							sourceType,
+							user,
+							password,
+							host,
+							port,
+							databaseName
+						);
+					}
+					if (destinationType) {
+						destinationPath = formatConnectionString(
+							destinationType,
+							user,
+							password,
+							host,
+							port,
+							databaseName
+						);
+					}
+					showDialog = false;
+				}}>Save</Button
+			>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
