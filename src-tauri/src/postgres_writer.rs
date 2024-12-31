@@ -5,6 +5,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
 use tokio_postgres::{types::ToSql, Client, NoTls, Statement};
+use bytes::BufMut;
+use bytes::BytesMut;
+use futures_util::sink::SinkExt;
+use std::pin::Pin;
 
 /// Open a PostgreSQL connection
 pub async fn open_connection(connection_string: &str) -> Result<Client, String> {
@@ -131,6 +135,55 @@ pub async fn insert_record(
         .map_err(|e| format!("Failed to insert record: {}", e))?;
 
     Ok(())
+}
+
+/// Start a COPY operation for bulk loading
+pub async fn start_copy(
+    client: &Client,
+    table_name: &str,
+    columns: &[(String, String)],
+) -> Result<Pin<Box<tokio_postgres::CopyInSink<BytesMut>>>, String> {
+    let column_names = columns
+        .iter()
+        .map(|(name, _)| format!("\"{}\"", name))
+        .collect::<Vec<_>>()
+        .join(",");
+
+    let copy_sql = format!(
+        "COPY \"{}\" ({}) FROM STDIN WITH (FORMAT csv)",
+        table_name, column_names
+    );
+
+    let sink = client
+        .copy_in(&copy_sql)
+        .await
+        .map_err(|e| format!("Failed to start COPY operation: {}", e))?;
+    
+    Ok(Box::pin(sink))
+}
+
+/// Write a CSV record using the COPY protocol
+pub async fn copy_record(
+    writer: &mut Pin<Box<tokio_postgres::CopyInSink<BytesMut>>>,
+    record: &csv::StringRecord,
+) -> Result<(), String> {
+    let mut buf = BytesMut::new();
+    let csv_line = record.iter().collect::<Vec<&str>>().join(",");
+    buf.put_slice(format!("{}\n", csv_line).as_bytes());
+    
+    writer.as_mut()
+        .send(buf)
+        .await
+        .map_err(|e| format!("Failed to write record: {}", e))?;
+    Ok(())
+}
+
+/// Finish the COPY operation
+pub async fn finish_copy(mut writer: Pin<Box<tokio_postgres::CopyInSink<BytesMut>>>) -> Result<u64, String> {
+    writer.as_mut()
+        .finish()
+        .await
+        .map_err(|e| format!("Failed to finish COPY operation: {}", e))
 }
 
 /// Helper to execute a closure with retries on connection errors

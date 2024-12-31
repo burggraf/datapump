@@ -113,13 +113,10 @@ pub async fn csv_to_postgres(
     // 4. Create or ensure the table exists
     postgres_writer::create_table(&client, &table_name, &columns).await?;
 
-    // 5. Prepare the INSERT statement
-    let statement = postgres_writer::prepare_insert(&client, &table_name, &columns).await?;
+    // 5. Begin COPY operation
+    let mut copy_writer = postgres_writer::start_copy(&client, &table_name, &columns).await?;
 
-    // 6. Begin initial transaction
-    postgres_writer::begin_transaction(client.clone()).await?;
-
-    // 7. Count total rows (for progress reporting)
+    // 6. Count total rows (for progress reporting)
     let _ = window.emit(
         "migration_progress",
         ProgressEvent {
@@ -145,7 +142,7 @@ pub async fn csv_to_postgres(
         },
     );
 
-    // 8. Detect delimiter and create a CSV reader
+    // 7. Detect delimiter and create a CSV reader
     let delimiter = csv_reader::detect_delimiter(&file_path)?;
     let mut rdr = csv_reader::create_csv_reader(&file_path, delimiter)?;
 
@@ -154,7 +151,7 @@ pub async fn csv_to_postgres(
         flag.store(false, Ordering::SeqCst);
     }
 
-    // 9. Process CSV rows, inserting in batches
+    // 8. Process CSV rows using COPY
     let mut processed_rows = 0;
     let mut row_count = 0;
     let mut last_logged = 0;
@@ -163,7 +160,6 @@ pub async fn csv_to_postgres(
         // Check for user cancellation
         if let Some(flag) = CANCELLATION_REQUESTED.get() {
             if flag.load(Ordering::SeqCst) {
-                let _ = postgres_writer::rollback_transaction(&client).await; // Cleanup
                 let _ = window.emit(
                     "migration_progress",
                     ProgressEvent {
@@ -187,22 +183,6 @@ pub async fn csv_to_postgres(
         // Log progress every 100,000 rows
         if row_count - last_logged >= 100_000 {
             last_logged = row_count;
-        }
-
-        let record = match result {
-            Ok(r) => r,
-            Err(e) => {
-                let _ = postgres_writer::rollback_transaction(&client).await; // Cleanup
-                return Err(format!("Error processing row {}: {}", row_count, e));
-            }
-        };
-
-        // Insert the current record into PostgreSQL with type conversion
-        postgres_writer::insert_record(&statement, &client, &record, &columns).await?;
-
-        // Commit the batch if we've reached the batch_size
-        if processed_rows % batch_size == 0 {
-            postgres_writer::commit_and_begin_new_transaction(client.clone()).await?;
             let _ = window.emit(
                 "migration_progress",
                 ProgressEvent {
@@ -215,10 +195,20 @@ pub async fn csv_to_postgres(
                 },
             );
         }
+
+        let record = match result {
+            Ok(r) => r,
+            Err(e) => {
+                return Err(format!("Error processing row {}: {}", row_count, e));
+            }
+        };
+
+        // Write the record using COPY
+        postgres_writer::copy_record(&mut copy_writer, &record).await?;
     }
 
-    // Final commit
-    postgres_writer::commit_transaction(&client).await?;
+    // Finish COPY operation
+    let rows_copied = postgres_writer::finish_copy(copy_writer).await?;
 
     // Final progress event
     let _ = window.emit(
@@ -229,7 +219,7 @@ pub async fn csv_to_postgres(
             row_count,
             batch_size: 0,
             status: "complete".to_string(),
-            message: None,
+            message: Some(format!("Successfully copied {} rows", rows_copied)),
         },
     );
 
