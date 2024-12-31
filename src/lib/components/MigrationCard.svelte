@@ -7,6 +7,7 @@
 	import { invoke } from "@tauri-apps/api/core";
 	import { listen } from "@tauri-apps/api/event";
 	import { getCurrentWindow } from "@tauri-apps/api/window";
+	import SourceTypeSelect from "./SourceTypeSelect.svelte";
 
 	let { selectedSource, outputConnectionString } = $props<{
 		selectedSource: File | null;
@@ -23,6 +24,8 @@
 	let tableName = $state<string>("");
 	let dbPath = $state("");
 	let cancellationRequested = $state(false);
+	let sourceType = $state("csv_tsv");
+	let outputType = $state("sqlite");
 
 	$effect(() => {
 		console.log("tableName:", tableName);
@@ -235,6 +238,7 @@
 		<div class="block w-full">
 			<div class="mt-1 flex items-center">
 				<label for="filePath" class="mr-2 w-32 text-sm font-medium text-gray-700">Source:</label>
+				<SourceTypeSelect bind:selectedValue={sourceType} class="ml-2 mr-2" />
 				<Input
 					type="text"
 					id="filePath"
@@ -261,6 +265,7 @@
 			</div>
 			<div class="mt-4 flex items-center">
 				<label for="dbPath" class="mr-2 w-32 text-sm font-medium text-gray-700">Output:</label>
+				<SourceTypeSelect bind:selectedValue={outputType} class="ml-2 mr-2" />
 				<Input
 					type="text"
 					id="dbPath"
