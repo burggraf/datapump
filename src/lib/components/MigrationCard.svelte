@@ -24,6 +24,7 @@
 	let tableName = $state<string>("");
 	let dbPath = $state("");
 	let cancellationRequested = $state(false);
+	let migrationInProgress = $state(false);
 	let sourceType = $state("csv_tsv");
 	let outputType = $state("sqlite");
 
@@ -84,10 +85,12 @@
 			await invoke("cancel_migration");
 			status = "cancelled";
 			message = "Migration cancelled by user";
+			migrationInProgress = false;
 		} catch (error) {
 			console.error("Error cancelling migration:", error);
 			status = "error";
 			message = "Failed to cancel migration";
+			migrationInProgress = false;
 		}
 	};
 
@@ -100,6 +103,7 @@
 		status = "idle";
 		timeRemainingDisplay = "";
 		cancellationRequested = false;
+		migrationInProgress = true;
 
 		let ts = +new Date();
 		// Setup event listener
@@ -209,10 +213,12 @@
 			console.log("result", result);
 		} catch (error) {
 			console.error("Error during CSV to SQLite migration:", error);
+			migrationInProgress = false;
 			throw error;
 		} finally {
 			// Clean up event listener
 			unlisten();
+			migrationInProgress = false;
 		}
 	};
 </script>
@@ -295,14 +301,18 @@
 			</div>
 		</div>
 		<br />
-		<Button onclick={startMigration}>Start Migration</Button>
-		<Button
-			onclick={cancelMigration}
-			disabled={status !== "processing"}
-			class="bg-red-500 hover:bg-red-600"
-		>
-			Cancel Migration
-		</Button>
+		{#if !migrationInProgress}
+			<Button onclick={startMigration}>Start Migration</Button>
+		{/if}
+		{#if migrationInProgress}
+			<Button
+				onclick={cancelMigration}
+				disabled={status !== "processing"}
+				class="bg-red-500 hover:bg-red-600"
+			>
+				Cancel Migration
+			</Button>
+		{/if}
 		<div class="mt-4 rounded border p-4">
 			<h3 class="mb-2 text-lg font-semibold">Status</h3>
 			<div class="grid grid-cols-2 gap-2">
