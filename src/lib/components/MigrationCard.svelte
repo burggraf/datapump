@@ -22,7 +22,7 @@
 	let sourceType = $state("csv_tsv");
 	let outputType = $state("sqlite");
 	let sourcePath = $state("");
-	let dbPath = $state("");
+	let destinationPath = $state("");
 	let tableName = $state<string>("");
 
 	$effect(() => {
@@ -30,9 +30,9 @@
 		if (storedSourcePath) {
 			sourcePath = storedSourcePath;
 		}
-		const storedDbPath = localStorage.getItem("dbPath");
-		if (storedDbPath) {
-			dbPath = storedDbPath;
+		const storedDestinationPath = localStorage.getItem("destinationPath");
+		if (storedDestinationPath) {
+			destinationPath = storedDestinationPath;
 		}
 		const storedTableName = localStorage.getItem("tableName");
 		if (storedTableName) {
@@ -43,7 +43,7 @@
 		localStorage.setItem("sourcePath", sourcePath);
 	});
 	$effect(() => {
-		localStorage.setItem("dbPath", dbPath);
+		localStorage.setItem("destinationPath", destinationPath);
 	});
 	$effect(() => {
 		localStorage.setItem("tableName", tableName);
@@ -139,7 +139,7 @@
 				batchSize: 50000,
 				schema: schema,
 				tableName: tableName,
-				dbPath
+				destinationPath
 			});
 		} catch (error) {
 			console.error("Error during CSV to SQLite migration:", error);
@@ -189,12 +189,14 @@
 				</Button>
 			</div>
 			<div class="mt-4 flex items-center">
-				<label for="dbPath" class="mr-2 w-32 text-sm font-medium text-gray-700">Output:</label>
+				<label for="destinationPath" class="mr-2 w-32 text-sm font-medium text-gray-700"
+					>Output:</label
+				>
 				<SourceTypeSelect bind:selectedValue={outputType} class="ml-2 mr-2" />
 				<Input
 					type="text"
-					id="dbPath"
-					bind:value={dbPath}
+					id="destinationPath"
+					bind:value={destinationPath}
 					placeholder="Enter output path"
 					class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 					autocomplete="off"
@@ -207,7 +209,7 @@
 					onclick={async () => {
 						try {
 							const path = await invoke<string>("open_file_dialog", {});
-							dbPath = path;
+							destinationPath = path;
 						} catch (error) {
 							console.error("Error selecting file:", error);
 						}
