@@ -70,7 +70,7 @@ pub async fn csv_to_postgres(
     file_path: String,
     batch_size: usize,
     schema: String,
-    db_connection_string: String,
+    db_path: String,
     table_name: String,
 ) -> Result<(), String> {
     // 1. Validate input parameters
@@ -108,7 +108,7 @@ pub async fn csv_to_postgres(
         .collect::<Result<Vec<_>, String>>()?;
 
     // 3. Open PostgreSQL connection
-    let client = Arc::new(postgres_writer::open_connection(&db_connection_string).await?);
+    let client = Arc::new(postgres_writer::open_connection(&db_path).await?);
 
     // 4. Create or ensure the table exists
     postgres_writer::create_table(&client, &table_name, &columns).await?;

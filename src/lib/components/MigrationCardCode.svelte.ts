@@ -90,15 +90,17 @@ export default class MigrationCard {
             localStorage.setItem("destinationHost", this.destinationHost);
             localStorage.setItem("destinationPort", this.destinationPort);
             localStorage.setItem("destinationDatabaseName", this.destinationDatabaseName);
-            this.tableName = this.tableNameFromPath();
+            // this.tableName = this.tableNameFromPath();
         });
     }
 
+    /*
     tableNameFromPath = $derived(() => {
         if (!this.sourcePath) return "";
         const filename = this.sourcePath.split("/").pop() || "";
         return filename.replace(/\.[^/.]+$/, "");
     });
+    */
 
     async cancelMigration() {
         this.cancellationRequested = true;
@@ -167,7 +169,7 @@ export default class MigrationCard {
             }
 
             const window = getCurrentWindow();
-            const result = await invoke("csv_to_sqlite", {
+            const result = await invoke(`csv_to_${this.destinationType}`, {
                 window,
                 filePath: this.sourcePath,
                 batchSize: 50000,

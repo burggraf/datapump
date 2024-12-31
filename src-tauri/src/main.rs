@@ -74,6 +74,7 @@ fn main() {
             flat_files::append_to_file,
             commands::get_csv_schema,
             commands::csv_to_sqlite,
+            commands::csv_to_postgres,
             commands::cancel_migration,
             open_file_dialog
         ])
