@@ -1,9 +1,7 @@
 <script lang="ts">
-	import { onMount } from "svelte";
 	import { Button } from "$lib/components/ui/button";
 	import { Input } from "$lib/components/ui/input";
 	import * as Card from "$lib/components/ui/card";
-	import { migrate } from "$lib/services/migrateFileSqlite.svelte";
 	import { invoke } from "@tauri-apps/api/core";
 	import { listen } from "@tauri-apps/api/event";
 	import { getCurrentWindow } from "@tauri-apps/api/window";
