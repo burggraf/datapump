@@ -1,4 +1,4 @@
-use csv::{ReaderBuilder, StringRecord};
+use csv::ReaderBuilder;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 // src/csv_schema.rs
@@ -71,12 +71,10 @@ pub fn get_csv_schema(file_path: &str) -> Result<String, String> {
     };
 
     let mut field_types = Vec::new();
-    let mut max_fields = headers.len();
-
     // Track the number of fields in the first valid record
-    let mut first_record_fields = 0;
+    let first_record_fields = 0;
 
-    let mut max_fields = headers.len();
+    let max_fields = headers.len();
 
     for result in csv_reader.records() {
         let record = match result {
@@ -87,7 +85,7 @@ pub fn get_csv_schema(file_path: &str) -> Result<String, String> {
                 }
                 // Update max fields if this record has more
                 if r.len() > max_fields {
-                    max_fields = r.len();
+                    let _ = r.len();
                 }
                 r
             }
@@ -100,7 +98,7 @@ pub fn get_csv_schema(file_path: &str) -> Result<String, String> {
 
         // If this is the first valid record, note its field count
         if first_record_fields == 0 {
-            first_record_fields = record.len();
+            let _ = record.len();
         }
 
         // Ensure we have enough field types

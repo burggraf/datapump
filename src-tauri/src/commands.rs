@@ -161,7 +161,7 @@ pub async fn csv_to_sqlite(
         // Check for user cancellation
         if let Some(flag) = CANCELLATION_REQUESTED.get() {
             if flag.load(Ordering::SeqCst) {
-                sqlite_writer::rollback_transaction(&connection); // Cleanup
+                let _ = sqlite_writer::rollback_transaction(&connection); // Cleanup
                 let _ = window.emit(
                     "migration_progress",
                     ProgressEvent {
@@ -191,7 +191,7 @@ pub async fn csv_to_sqlite(
         let record = match result {
             Ok(r) => r,
             Err(e) => {
-                sqlite_writer::rollback_transaction(&connection); // Cleanup
+                let _ = sqlite_writer::rollback_transaction(&connection); // Cleanup
                 return Err(format!("Error processing row {}: {}", row_count, e));
             }
         };
