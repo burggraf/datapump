@@ -174,19 +174,25 @@
 					autocorrect="off"
 					class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
 				/>
-				<Button
-					class="ml-2"
-					onclick={async () => {
-						try {
-							const path = await invoke<string>("open_file_dialog", {});
-							sourcePath = path;
-						} catch (error) {
-							console.error("Error selecting file:", error);
-						}
-					}}
-				>
-					Choose File
-				</Button>
+				{#if sourceType === "csv_tsv" || sourceType === "sqlite"}
+					<Button
+						id="chooseSourceFile"
+						class="ml-2"
+						onclick={async () => {
+							try {
+								const path = await invoke<string>("open_file_dialog", {});
+								sourcePath = path;
+							} catch (error) {
+								console.error("Error selecting file:", error);
+							}
+						}}
+					>
+						Choose File
+					</Button>
+				{/if}
+				{#if sourceType !== "csv_tsv" && sourceType !== "sqlite"}
+					<ChooseDatabase />
+				{/if}
 			</div>
 			<div class="mt-4 flex items-center">
 				<label for="destinationPath" class="mr-2 w-32 text-sm font-medium text-gray-700"
@@ -204,19 +210,25 @@
 					spellcheck="false"
 					autocorrect="off"
 				/>
-				<Button
-					class="ml-2"
-					onclick={async () => {
-						try {
-							const path = await invoke<string>("open_file_dialog", {});
-							destinationPath = path;
-						} catch (error) {
-							console.error("Error selecting file:", error);
-						}
-					}}
-				>
-					Choose File
-				</Button>
+				{#if outputType === "csv_tsv" || outputType === "sqlite"}
+					<Button
+						id="chooseDestinationFile"
+						class="ml-2"
+						onclick={async () => {
+							try {
+								const path = await invoke<string>("open_file_dialog", {});
+								destinationPath = path;
+							} catch (error) {
+								console.error("Error selecting file:", error);
+							}
+						}}
+					>
+						Choose File
+					</Button>
+				{/if}
+				{#if outputType !== "csv_tsv" && outputType !== "sqlite"}
+					<ChooseDatabase />
+				{/if}
 			</div>
 			<div class="mt-4 flex items-center">
 				<label for="tableName" class="mr-2 w-32 text-sm font-medium text-gray-700">Table:</label>
@@ -236,7 +248,6 @@
 		<br />
 		{#if !migrationInProgress}
 			<Button onclick={startMigration}>Start Migration</Button>
-			<ChooseDatabase />
 		{/if}
 		{#if migrationInProgress}
 			<Button

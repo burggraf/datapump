@@ -15,7 +15,7 @@
 
 <Dialog.Root>
 	<Dialog.Trigger>
-		<Button>Choose DB</Button>
+		<Button class="ml-2">Choose DB</Button>
 	</Dialog.Trigger>
 	<Dialog.Content class="sm:max-w-[425px]">
 		<Dialog.Header>
