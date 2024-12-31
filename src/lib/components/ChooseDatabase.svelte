@@ -4,16 +4,18 @@
 	import { Input } from "$lib/components/ui/input/index.js";
 	import { Label } from "$lib/components/ui/label/index.js";
 
-	let db = $state({
-		user: "",
-		password: "",
-		host: "",
-		port: "",
-		databaseName: ""
-	});
+	let {
+		user = $bindable(""),
+		password = $bindable(""),
+		host = $bindable(""),
+		port = $bindable(""),
+		databaseName = $bindable("")
+	} = $props();
+
+	let showDialog = $state(false);
 </script>
 
-<Dialog.Root>
+<Dialog.Root bind:open={showDialog}>
 	<Dialog.Trigger>
 		<Button class="ml-2">Choose DB</Button>
 	</Dialog.Trigger>
@@ -25,27 +27,27 @@
 		<div class="grid gap-4 py-4">
 			<div class="grid gap-2">
 				<Label for="user">User</Label>
-				<Input id="user" type="text" bind:value={db.user} />
+				<Input id="user" type="text" bind:value={user} />
 			</div>
 			<div class="grid gap-2">
 				<Label for="password">Password</Label>
-				<Input id="password" type="password" bind:value={db.password} />
+				<Input id="password" type="password" bind:value={password} />
 			</div>
 			<div class="grid gap-2">
 				<Label for="host">Host</Label>
-				<Input id="host" type="text" bind:value={db.host} />
+				<Input id="host" type="text" bind:value={host} />
 			</div>
 			<div class="grid gap-2">
 				<Label for="port">Port</Label>
-				<Input id="port" type="number" bind:value={db.port} />
+				<Input id="port" type="number" bind:value={port} />
 			</div>
 			<div class="grid gap-2">
 				<Label for="databaseName">Database Name</Label>
-				<Input id="databaseName" type="text" bind:value={db.databaseName} />
+				<Input id="databaseName" type="text" bind:value={databaseName} />
 			</div>
 		</div>
 		<Dialog.Footer>
-			<Button type="submit">Save</Button>
+			<Button type="submit" onclick={() => (showDialog = false)}>Save</Button>
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>

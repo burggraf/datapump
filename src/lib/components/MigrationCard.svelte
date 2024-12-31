@@ -20,9 +20,20 @@
 	let migrationInProgress = $state(false);
 
 	let sourceType = $state("csv_tsv");
-	let outputType = $state("sqlite");
 	let sourcePath = $state("");
+	let sourceUser = $state("");
+	let sourcePassword = $state("");
+	let sourceHost = $state("");
+	let sourcePort = $state("");
+	let sourceDatabaseName = $state("");
+	let destinationType = $state("sqlite");
 	let destinationPath = $state("");
+	let destinationUser = $state("");
+	let destinationPassword = $state("");
+	let destinationHost = $state("");
+	let destinationPort = $state("");
+	let destinationDatabaseName = $state("");
+
 	let tableName = $state<string>("");
 
 	$effect(() => {
@@ -191,14 +202,20 @@
 					</Button>
 				{/if}
 				{#if sourceType !== "csv_tsv" && sourceType !== "sqlite"}
-					<ChooseDatabase />
+					<ChooseDatabase
+						bind:user={sourceUser}
+						bind:password={sourcePassword}
+						bind:host={sourceHost}
+						bind:port={sourcePort}
+						bind:databaseName={sourceDatabaseName}
+					/>
 				{/if}
 			</div>
 			<div class="mt-4 flex items-center">
 				<label for="destinationPath" class="mr-2 w-32 text-sm font-medium text-gray-700"
 					>Output:</label
 				>
-				<SourceTypeSelect bind:selectedValue={outputType} class="ml-2 mr-2" />
+				<SourceTypeSelect bind:selectedValue={destinationType} class="ml-2 mr-2" />
 				<Input
 					type="text"
 					id="destinationPath"
@@ -210,7 +227,7 @@
 					spellcheck="false"
 					autocorrect="off"
 				/>
-				{#if outputType === "csv_tsv" || outputType === "sqlite"}
+				{#if destinationType === "csv_tsv" || destinationType === "sqlite"}
 					<Button
 						id="chooseDestinationFile"
 						class="ml-2"
@@ -226,8 +243,14 @@
 						Choose File
 					</Button>
 				{/if}
-				{#if outputType !== "csv_tsv" && outputType !== "sqlite"}
-					<ChooseDatabase />
+				{#if destinationType !== "csv_tsv" && destinationType !== "sqlite"}
+					<ChooseDatabase
+						bind:user={destinationUser}
+						bind:password={destinationPassword}
+						bind:host={destinationHost}
+						bind:port={destinationPort}
+						bind:databaseName={destinationDatabaseName}
+					/>
 				{/if}
 			</div>
 			<div class="mt-4 flex items-center">
