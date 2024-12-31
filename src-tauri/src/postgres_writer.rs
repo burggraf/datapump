@@ -75,18 +75,58 @@ pub async fn prepare_insert(
         .map_err(|e| format!("Failed to prepare insert statement: {}", e))
 }
 
-/// Insert a single record
+/// Insert a single record with proper type conversion
 pub async fn insert_record(
     statement: &Statement,
     client: &Client,
     record: &StringRecord,
+    columns: &[(String, String)],
 ) -> Result<(), String> {
-    let params: Vec<&str> = record.iter().collect();
-    let params: Vec<&(dyn ToSql + Sync)> =
-        params.iter().map(|s| s as &(dyn ToSql + Sync)).collect();
+    // Add + Send here
+    let mut values: Vec<Box<dyn ToSql + Sync + Send>> = Vec::new();
+
+    for (i, (field, (_, col_type))) in record.iter().zip(columns.iter()).enumerate() {
+        // Add + Send to the boxed type
+        let value: Box<dyn ToSql + Sync + Send> = match col_type.to_lowercase().as_str() {
+            "integer" | "int" => {
+                let value = field
+                    .parse::<i32>()
+                    .map_err(|e| format!("Failed to parse integer at column {}: {}", i + 1, e))?;
+                Box::new(value)
+            }
+            "float" | "float4" | "real" => {
+                let value = field
+                    .parse::<f32>()
+                    .map_err(|e| format!("Failed to parse float at column {}: {}", i + 1, e))?;
+                Box::new(value)
+            }
+            "float8" | "double precision" => {
+                let value = field
+                    .parse::<f64>()
+                    .map_err(|e| format!("Failed to parse double at column {}: {}", i + 1, e))?;
+                Box::new(value)
+            }
+            "boolean" | "bool" => {
+                let value = field
+                    .parse::<bool>()
+                    .map_err(|e| format!("Failed to parse boolean at column {}: {}", i + 1, e))?;
+                Box::new(value)
+            }
+            _ => Box::new(field.to_string()),
+        };
+        values.push(value);
+    }
+
+    let mut temp_params = Vec::with_capacity(values.len());
+    for value in &values {
+        // It's okay to reference as &dyn ToSql + Sync; the important part is that the Box itself is Send.
+        let v: &(dyn ToSql + Sync) = value.as_ref();
+        temp_params.push(v);
+    }
+    let params: &[&(dyn ToSql + Sync)] = &temp_params;
 
     client
-        .execute(statement, params.as_slice())
+        .execute(statement, params)
         .await
         .map_err(|e| format!("Failed to insert record: {}", e))?;
 

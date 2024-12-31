@@ -197,8 +197,8 @@ pub async fn csv_to_postgres(
             }
         };
 
-        // Insert the current record into PostgreSQL
-        postgres_writer::insert_record(&statement, &client, &record).await?;
+        // Insert the current record into PostgreSQL with type conversion
+        postgres_writer::insert_record(&statement, &client, &record, &columns).await?;
 
         // Commit the batch if we've reached the batch_size
         if processed_rows % batch_size == 0 {
