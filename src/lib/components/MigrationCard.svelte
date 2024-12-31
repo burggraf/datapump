@@ -9,11 +9,6 @@
 	import { getCurrentWindow } from "@tauri-apps/api/window";
 	import SourceTypeSelect from "./SourceTypeSelect.svelte";
 
-	let { selectedSource, outputConnectionString } = $props<{
-		selectedSource: File | null;
-		outputConnectionString: string;
-	}>();
-
 	let totalRows = $state(0);
 	let processedRows = $state(0);
 	let batchSize = $state(0);
