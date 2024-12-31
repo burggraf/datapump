@@ -14,13 +14,15 @@
 	let status = $state("idle");
 	let rows_per_second = $state(0);
 	let timeRemainingDisplay = $state("");
-	let tableName = $state<string>("");
-	let dbPath = $state("");
+
 	let cancellationRequested = $state(false);
 	let migrationInProgress = $state(false);
+
 	let sourceType = $state("csv_tsv");
 	let outputType = $state("sqlite");
 	let sourcePath = $state("");
+	let dbPath = $state("");
+	let tableName = $state<string>("");
 
 	$effect(() => {
 		const storedSourcePath = localStorage.getItem("sourcePath");
