@@ -38,28 +38,53 @@
 
 	$effect(() => {
 		const storedSourcePath = localStorage.getItem("sourcePath");
-		if (storedSourcePath) {
-			sourcePath = storedSourcePath;
-		}
+		if (storedSourcePath) sourcePath = storedSourcePath;
 		const storedDestinationPath = localStorage.getItem("destinationPath");
-		if (storedDestinationPath) {
-			destinationPath = storedDestinationPath;
-		}
+		if (storedDestinationPath) destinationPath = storedDestinationPath;
 		const storedTableName = localStorage.getItem("tableName");
-		if (storedTableName) {
-			tableName = storedTableName;
-		}
+		if (storedTableName) tableName = storedTableName;
+		const storedSourceType = localStorage.getItem("sourceType");
+		if (storedSourceType) sourceType = storedSourceType;
+		const storedSourceUser = localStorage.getItem("sourceUser");
+		if (storedSourceUser) sourceUser = storedSourceUser;
+		const storedSourcePassword = localStorage.getItem("sourcePassword");
+		if (storedSourcePassword) sourcePassword = storedSourcePassword;
+		const storedSourceHost = localStorage.getItem("sourceHost");
+		if (storedSourceHost) sourceHost = storedSourceHost;
+		const storedSourcePort = localStorage.getItem("sourcePort");
+		if (storedSourcePort) sourcePort = storedSourcePort;
+		const storedSourceDatabaseName = localStorage.getItem("sourceDatabaseName");
+		if (storedSourceDatabaseName) sourceDatabaseName = storedSourceDatabaseName;
+		const storedDestinationType = localStorage.getItem("destinationType");
+		if (storedDestinationType) destinationType = storedDestinationType;
+		const storedDestinationUser = localStorage.getItem("destinationUser");
+		if (storedDestinationUser) destinationUser = storedDestinationUser;
+		const storedDestinationPassword = localStorage.getItem("destinationPassword");
+		if (storedDestinationPassword) destinationPassword = storedDestinationPassword;
+		const storedDestinationHost = localStorage.getItem("destinationHost");
+		if (storedDestinationHost) destinationHost = storedDestinationHost;
+		const storedDestinationPort = localStorage.getItem("destinationPort");
+		if (storedDestinationPort) destinationPort = storedDestinationPort;
+		const storedDestinationDatabaseName = localStorage.getItem("destinationDatabaseName");
+		if (storedDestinationDatabaseName) destinationDatabaseName = storedDestinationDatabaseName;
 	});
+
 	$effect(() => {
 		localStorage.setItem("sourcePath", sourcePath);
-	});
-	$effect(() => {
 		localStorage.setItem("destinationPath", destinationPath);
-	});
-	$effect(() => {
 		localStorage.setItem("tableName", tableName);
-	});
-	$effect(() => {
+		localStorage.setItem("sourceType", sourceType);
+		localStorage.setItem("sourceUser", sourceUser);
+		localStorage.setItem("sourcePassword", sourcePassword);
+		localStorage.setItem("sourceHost", sourceHost);
+		localStorage.setItem("sourcePort", sourcePort);
+		localStorage.setItem("sourceDatabaseName", sourceDatabaseName);
+		localStorage.setItem("destinationType", destinationType);
+		localStorage.setItem("destinationUser", destinationUser);
+		localStorage.setItem("destinationPassword", destinationPassword);
+		localStorage.setItem("destinationHost", destinationHost);
+		localStorage.setItem("destinationPort", destinationPort);
+		localStorage.setItem("destinationDatabaseName", destinationDatabaseName);
 		tableName = tableNameFromPath();
 	});
 	let tableNameFromPath = $derived(() => {
