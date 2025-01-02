@@ -119,6 +119,7 @@
 		<br />
 		{#if !migrationCard.migrationInProgress}
 			<Button onclick={() => migrationCard.startMigration()}>Start Migration</Button>
+			<Button onclick={() => migrationCard.startMigration2()}>Start Migration 2</Button>
 		{/if}
 		{#if migrationCard.migrationInProgress}
 			<Button

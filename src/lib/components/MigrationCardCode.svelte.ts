@@ -188,6 +188,57 @@ export default class MigrationCard {
             this.migrationInProgress = false;
         }
     }
+
+    async startMigration2() {
+        // Reset state variables
+        this.totalRows = 0;
+        this.processedRows = 0;
+        this.batchSize = 0;
+        this.message = "";
+        this.status = "idle";
+        this.timeRemainingDisplay = "";
+        this.cancellationRequested = false;
+        this.migrationInProgress = true;
+
+        let ts = +new Date();
+        // Setup event listener
+        const unlisten = await listen<ProgressEvent>("migration_progress", (event) => {
+            if (this.cancellationRequested) return;
+
+            this.processedRows = event.payload.processed_rows;
+            this.totalRows = event.payload.total_rows;
+            this.batchSize = event.payload.batch_size;
+            this.status = event.payload.status;
+            this.message = event.payload.message || "";
+            const elapsed = (+new Date() - ts) / 1000;
+            const rps = this.processedRows / elapsed;
+            this.rows_per_second = Math.round(this.processedRows / elapsed);
+            
+            if (this.status === "parsing_schema_complete" || this.status === "counted_rows") {
+                ts = +new Date();
+            }
+        });
+
+        try {
+            // Construct connection string for PostgreSQL
+            const connectionString = `postgresql://${this.destinationUser}:${this.destinationPassword}@${this.destinationHost}:${this.destinationPort}/${this.destinationDatabaseName}`;
+
+            const result = await invoke("import_csv_to_postgres", {
+                connectionString,
+                pathToFile: this.sourcePath,
+                tableName: this.tableName
+            });
+        } catch (error) {
+            console.error("Error during CSV to PostgreSQL migration:", error);
+            this.status = "Error: " + (error as string) || "ERROR";
+            this.migrationInProgress = false;
+            throw error;
+        } finally {
+            // Clean up event listener
+            unlisten();
+            this.migrationInProgress = false;
+        }
+    }
 }
 
 interface ProgressEvent {
