@@ -169,7 +169,11 @@ pub async fn import_csv_to_postgres(
                     row_count: processed_rows,
                     batch_size: 0,
                     status: "processing".to_string(),
-                    message: None,
+                    message: Some(format!(
+                        "Processed {} rows ({:.1}%)",
+                        processed_rows,
+                        (processed_rows as f64 / total_rows as f64) * 100.0
+                    )),
                 },
             );
         }

@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import Papa from 'papaparse';
 
 export default class MigrationCard {
     constructor() {
@@ -16,7 +17,7 @@ export default class MigrationCard {
     batchSize = $state(0);
     message = $state("");
     status = $state("idle");
-    rows_per_second = $state(0);
+    rowsPerSecond = $state(0);
     timeRemainingDisplay = $state("");
 
     cancellationRequested = $state(false);
@@ -38,7 +39,190 @@ export default class MigrationCard {
     destinationDatabaseName = $state("");
 
     tableName = $state("");
+    selectedFile = $state<File | null>(null);
 
+    async analyzeSchema() {
+        console.log('Analyzing schema for file:', this.sourcePath);
+
+        try {
+            console.log('Starting file analysis');
+            const CHUNK_SIZE = 10000; // Number of lines per chunk
+            const MAX_LINES = 100000; // Maximum number of lines to analyze
+            
+            // Get first batch to determine schema
+            let offset = 0;
+            let hasMoreChunks = true;
+            let firstBatch = true;
+            const columnTypes: { [key: string]: string } = {};
+            let totalRows = 0;
+            let fileDelimiter = ',';
+            let linebreak = '\n';
+
+            while (hasMoreChunks) {
+                console.log(`Reading batch starting at offset ${offset}...`);
+                const [chunks, isLastBatch]: [string[], boolean] = await this.invoke<[string[], boolean]>('read_file_chunks', { 
+                    filePath: this.sourcePath,
+                    chunkSize: CHUNK_SIZE,
+                    offset
+                });
+                
+                if (!chunks || chunks.length === 0) {
+                    if (firstBatch) {
+                        throw new Error('No data in file');
+                    }
+                    break;
+                }
+
+                console.log(`Received ${chunks.length} chunks in batch. Processing...`);
+
+                // Initialize schema from first chunk if this is the first batch
+                if (firstBatch) {
+                    const firstChunkResults: { data: any[]; meta: Papa.ParseMeta } = await new Promise((resolve, reject) => {
+                        console.log('Parsing first chunk to determine schema...');
+                        Papa.parse(chunks[0], {
+                            header: true,
+                            delimiter: ',', // Use comma for CSV files
+                            skipEmptyLines: true,
+                            complete: (results) => {
+                                console.log('First chunk parsed:', results.meta);
+                                // Store delimiter and linebreak from first chunk
+                                fileDelimiter = results.meta.delimiter;
+                                linebreak = results.meta.linebreak;
+                                resolve(results);
+                            },
+                            error: (error) => {
+                                console.error('Error parsing first chunk:', error);
+                                reject(error);
+                            }
+                        });
+                    });
+
+                    console.log('Analyzing column types from first chunk...');
+                    if (firstChunkResults.data.length > 0) {
+                        const firstRow = firstChunkResults.data[0];
+                        for (const column in firstRow) {
+                            columnTypes[column] = this.detectType(firstRow[column]);
+                        }
+                    }
+                    console.log('Initial column types:', columnTypes);
+                    firstBatch = false;
+                }
+
+                // Process all chunks in this batch
+                let processedChunks = 0;
+                const startTime = Date.now();
+                
+                for (const chunk of chunks) {
+                    processedChunks++;
+                    console.log(`Analyzing chunk ${processedChunks}/${chunks.length} in current batch`);
+                    
+                    const chunkResults: { data: any[] } = await new Promise((resolve, reject) => {
+                        Papa.parse(chunk, {
+                            header: true,
+                            delimiter: fileDelimiter,
+                            skipEmptyLines: true,
+                            complete: (results) => {
+                                console.log(`Chunk parsed: ${results.data.length} rows`);
+                                resolve(results);
+                            },
+                            error: (error) => {
+                                console.error(`Error parsing chunk:`, error);
+                                reject(error);
+                            }
+                        });
+                    });
+
+                    totalRows += chunkResults.data.length;
+                    const elapsedSeconds = (Date.now() - startTime) / 1000;
+                    console.log(`Processed ${totalRows} total rows in ${elapsedSeconds.toFixed(1)}s`);
+
+                    // Stop if we've reached the maximum number of lines
+                    if (totalRows >= MAX_LINES) {
+                        console.log(`Reached maximum line limit of ${MAX_LINES}. Stopping analysis.`);
+                        hasMoreChunks = false;
+                        break;
+                    }
+
+                    // Update column types based on new data
+                    if (chunkResults.data.length > 0) {
+                        for (const column in columnTypes) {
+                            // Only check if we haven't already determined it's text
+                            if (columnTypes[column] !== 'text') {
+                                const values = chunkResults.data
+                                    .map(row => row[column])
+                                    .filter(val => val !== null && val !== undefined && val !== '');
+
+                                if (columnTypes[column] === 'integer' || columnTypes[column] === 'number') {
+                                    const allNumbers = values.every(val => !isNaN(Number(val)));
+                                    if (!allNumbers) {
+                                        columnTypes[column] = 'text';
+                                    } else if (columnTypes[column] === 'integer') {
+                                        const allIntegers = values.every(val => Number.isInteger(Number(val)));
+                                        if (!allIntegers) {
+                                            columnTypes[column] = 'number';
+                                        }
+                                    }
+                                } else if (columnTypes[column] === 'date') {
+                                    const allDates = values.every(val => !isNaN(Date.parse(val)));
+                                    if (!allDates) {
+                                        columnTypes[column] = 'text';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Break out of main loop if we hit the line limit
+                if (!hasMoreChunks) {
+                    break;
+                }
+
+                // Update offset and check if we need to continue
+                offset += chunks.length * CHUNK_SIZE;
+                hasMoreChunks = !isLastBatch;
+                console.log(`Batch complete. Total rows so far: ${totalRows}. Continue: ${hasMoreChunks}`);
+            }
+
+            console.log('Final column types:', columnTypes);
+            return {
+                delimiter: fileDelimiter,
+                fields: columnTypes,
+                linebreak
+            };
+        } catch (error) {
+            console.error('Error analyzing schema:', error);
+            throw error;
+        }
+    }
+
+    private detectType(value: any): string {
+        // Handle null, undefined, or empty string
+        if (value === null || value === undefined || value === '') {
+            return 'text';
+        }
+
+        // Try parsing as number
+        const num = Number(value);
+        if (!isNaN(num)) {
+            return Number.isInteger(num) ? 'integer' : 'number';
+        }
+
+        // Try parsing as date
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+            return 'date';
+        }
+
+        // Check for boolean values
+        const lowerValue = String(value).toLowerCase();
+        if (lowerValue === 'true' || lowerValue === 'false') {
+            return 'boolean';
+        }
+
+        // Default to text
+        return 'text';
+    }
 
     private initializeLocalStorage() {
         const storedSourcePath = localStorage.getItem("sourcePath");
@@ -144,7 +328,7 @@ export default class MigrationCard {
             this.message = event.payload.message || "";
             const elapsed = (+new Date() - ts) / 1000;
             const rps = elapsed > 0 ? this.processedRows / elapsed : 0;
-            this.rows_per_second = Math.round(rps);
+            this.rowsPerSecond = Math.round(rps);
             
             // Calculate time remaining only if we have a valid rate and total rows
             if (rps > 0 && this.totalRows > 0 && this.processedRows < this.totalRows) {
@@ -178,7 +362,7 @@ export default class MigrationCard {
             const result = await invoke(`csv_to_${this.destinationType}`, {
                 window,
                 filePath: this.sourcePath,
-                batchSize: 50000,
+                batchSize: 10000,
                 schema: schema,
                 tableName: this.tableName,
                 dbPath: this.destinationPath
@@ -221,7 +405,7 @@ export default class MigrationCard {
             this.message = event.payload.message || "";
             const elapsed = (+new Date() - ts) / 1000;
             const rps = elapsed > 0 ? this.processedRows / elapsed : 0;
-            this.rows_per_second = Math.round(rps);
+            this.rowsPerSecond = Math.round(rps);
             
             // Calculate time remaining only if we have a valid rate and total rows
             if (rps > 0 && this.totalRows > 0 && this.processedRows < this.totalRows) {
@@ -265,9 +449,9 @@ export default class MigrationCard {
 }
 
 interface ProgressEvent {
+    total_rows: number;
     processed_rows: number;
     row_count: number;
-    total_rows: number;
     batch_size: number;
     status: string;
     message?: string;

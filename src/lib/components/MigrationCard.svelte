@@ -120,6 +120,7 @@
 		{#if !migrationCard.migrationInProgress}
 			<Button onclick={() => migrationCard.startMigration()}>Start Migration</Button>
 			<Button onclick={() => migrationCard.startMigration2()}>Start Migration 2</Button>
+			<Button onclick={() => migrationCard.analyzeSchema()}>Get Schema</Button>
 		{/if}
 		{#if migrationCard.migrationInProgress}
 			<Button

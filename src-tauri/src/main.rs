@@ -78,6 +78,7 @@ fn main() {
             commands::csv_to_postgres,
             commands::cancel_migration,
             commands::reset_cancellation,
+            commands::read_file_chunks,
             open_file_dialog,
             postgres_csv_import::import_csv_to_postgres
         ])

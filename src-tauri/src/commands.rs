@@ -44,7 +44,7 @@ pub async fn reset_cancellation() -> Result<(), String> {
 }
 
 #[tauri::command]
-pub async fn get_csv_schema(window: tauri::Window, file_path: String) -> Result<String, String> {
+pub async fn get_csv_schema(window: tauri::Window, filePath: String) -> Result<String, String> {
     // Emit event before schema parsing
     let _ = window.emit(
         "migration_progress",
@@ -59,7 +59,7 @@ pub async fn get_csv_schema(window: tauri::Window, file_path: String) -> Result<
     );
 
     // Delegate to csv_schema module
-    let result = csv_schema::get_csv_schema(&file_path);
+    let result = csv_schema::get_csv_schema(&filePath);
 
     // Emit event after schema parsing
     let _ = window.emit(
@@ -80,15 +80,15 @@ pub async fn get_csv_schema(window: tauri::Window, file_path: String) -> Result<
 #[tauri::command]
 pub async fn csv_to_postgres(
     window: tauri::Window,
-    file_path: String,
+    filePath: String,
     batch_size: usize,
     schema: String,
-    db_path: String,
-    table_name: String,
+    dbPath: String,
+    tableName: String,
 ) -> Result<(), String> {
     // 1. Validate input parameters
-    if !std::path::Path::new(&file_path).exists() {
-        return Err(format!("File does not exist: {}", file_path));
+    if !std::path::Path::new(&filePath).exists() {
+        return Err(format!("File does not exist: {}", filePath));
     }
     if batch_size == 0 {
         return Err("Batch size must be greater than 0".to_string());
@@ -96,7 +96,7 @@ pub async fn csv_to_postgres(
     if schema.is_empty() {
         return Err("Schema cannot be empty".to_string());
     }
-    if table_name.is_empty() {
+    if tableName.is_empty() {
         return Err("Table name cannot be empty".to_string());
     }
 
@@ -121,13 +121,13 @@ pub async fn csv_to_postgres(
         .collect::<Result<Vec<_>, String>>()?;
 
     // 3. Open PostgreSQL connection
-    let client = Arc::new(postgres_writer::open_connection(&db_path).await?);
+    let client = Arc::new(postgres_writer::open_connection(&dbPath).await?);
 
     // 4. Create or ensure the table exists
-    postgres_writer::create_table(&client, &table_name, &columns).await?;
+    postgres_writer::create_table(&client, &tableName, &columns).await?;
 
     // 5. Begin COPY operation
-    let mut copy_writer = postgres_writer::start_copy(&client, &table_name, &columns).await?;
+    let mut copy_writer = postgres_writer::start_copy(&client, &tableName, &columns).await?;
 
     // 6. Count total rows (for progress reporting)
     let _ = window.emit(
@@ -142,7 +142,7 @@ pub async fn csv_to_postgres(
         },
     );
 
-    let total_rows = csv_reader::count_rows(&file_path)?;
+    let total_rows = csv_reader::count_rows(&filePath)?;
     let _ = window.emit(
         "migration_progress",
         ProgressEvent {
@@ -156,8 +156,8 @@ pub async fn csv_to_postgres(
     );
 
     // 7. Detect delimiter and create a CSV reader
-    let delimiter = csv_reader::detect_delimiter(&file_path)?;
-    let mut rdr = csv_reader::create_csv_reader(&file_path, delimiter)?;
+    let delimiter = csv_reader::detect_delimiter(&filePath)?;
+    let mut rdr = csv_reader::create_csv_reader(&filePath, delimiter)?;
 
     // Reset cancellation flag at the start of migration
     if let Some(flag) = CANCELLATION_REQUESTED.get() {
@@ -204,7 +204,11 @@ pub async fn csv_to_postgres(
                     row_count,
                     batch_size,
                     status: "processing".to_string(),
-                    message: None,
+                    message: Some(format!(
+                        "Processed {} rows ({:.1}%)",
+                        processed_rows,
+                        (processed_rows as f64 / total_rows as f64) * 100.0
+                    )),
                 },
             );
         }
@@ -242,15 +246,15 @@ pub async fn csv_to_postgres(
 #[tauri::command]
 pub async fn csv_to_sqlite(
     window: tauri::Window,
-    file_path: String,
+    filePath: String,
     batch_size: usize,
     schema: String,
-    db_path: String,
-    table_name: String,
+    dbPath: String,
+    tableName: String,
 ) -> Result<(), String> {
     // 1. Validate input parameters
-    if !std::path::Path::new(&file_path).exists() {
-        return Err(format!("File does not exist: {}", file_path));
+    if !std::path::Path::new(&filePath).exists() {
+        return Err(format!("File does not exist: {}", filePath));
     }
     if batch_size == 0 {
         return Err("Batch size must be greater than 0".to_string());
@@ -258,7 +262,7 @@ pub async fn csv_to_sqlite(
     if schema.is_empty() {
         return Err("Schema cannot be empty".to_string());
     }
-    if table_name.is_empty() {
+    if tableName.is_empty() {
         return Err("Table name cannot be empty".to_string());
     }
 
@@ -283,13 +287,13 @@ pub async fn csv_to_sqlite(
         .collect::<Result<Vec<_>, String>>()?;
 
     // 3. Open and configure the SQLite database
-    let connection = sqlite_writer::open_connection(&db_path)?;
+    let connection = sqlite_writer::open_connection(&dbPath)?;
 
     // 4. Create or ensure the table exists
-    sqlite_writer::create_table(&connection, &table_name, &columns)?;
+    sqlite_writer::create_table(&connection, &tableName, &columns)?;
 
     // 5. Prepare the INSERT statement
-    let mut statement = sqlite_writer::prepare_insert(&connection, &table_name, &columns)?;
+    let mut statement = sqlite_writer::prepare_insert(&connection, &tableName, &columns)?;
 
     // 6. Begin initial transaction
     sqlite_writer::begin_transaction(&connection)?;
@@ -307,7 +311,7 @@ pub async fn csv_to_sqlite(
         },
     );
 
-    let total_rows = csv_reader::count_rows(&file_path)?;
+    let total_rows = csv_reader::count_rows(&filePath)?;
     let _ = window.emit(
         "migration_progress",
         ProgressEvent {
@@ -321,8 +325,8 @@ pub async fn csv_to_sqlite(
     );
 
     // 8. Detect delimiter and create a CSV reader
-    let delimiter = csv_reader::detect_delimiter(&file_path)?;
-    let mut rdr = csv_reader::create_csv_reader(&file_path, delimiter)?;
+    let delimiter = csv_reader::detect_delimiter(&filePath)?;
+    let mut rdr = csv_reader::create_csv_reader(&filePath, delimiter)?;
 
     // Reset cancellation flag at the start of migration
     if let Some(flag) = CANCELLATION_REQUESTED.get() {
@@ -387,7 +391,11 @@ pub async fn csv_to_sqlite(
                     row_count,
                     batch_size,
                     status: "processing".to_string(),
-                    message: None,
+                    message: Some(format!(
+                        "Processed {} rows ({:.1}%)",
+                        processed_rows,
+                        (processed_rows as f64 / total_rows as f64) * 100.0
+                    )),
                 },
             );
         }
@@ -410,4 +418,84 @@ pub async fn csv_to_sqlite(
     );
 
     Ok(())
+}
+
+#[tauri::command]
+pub async fn read_file_chunks(filePath: String, chunkSize: usize, offset: usize) -> Result<(Vec<String>, bool), String> {
+    use tokio::io::{AsyncBufReadExt, BufReader};
+    use tokio::fs::File;
+    use std::time::Instant;
+
+    println!("Starting to read file from offset {}: {}", offset, filePath);
+    let start = Instant::now();
+    
+    let file = File::open(&filePath).await.map_err(|e| e.to_string())?;
+    let reader = BufReader::new(file);
+    let mut lines = reader.lines();
+    
+    let mut chunks = Vec::new();
+    let mut current_chunk = String::with_capacity(chunkSize * 100); // Pre-allocate space
+    let mut line_count = 0;
+    let mut total_lines = 0;
+    let mut chunk_number = 0;
+    let mut current_offset = 0;
+    let batch_size = 10; // Number of chunks per batch
+    
+    // Get header line if this is the first batch
+    if offset == 0 {
+        let first_line = match lines.next_line().await.map_err(|e| e.to_string())? {
+            Some(line) => line,
+            None => return Ok((Vec::new(), true)), // Empty file
+        };
+        current_chunk.push_str(&first_line);
+        current_chunk.push('\n');
+        line_count += 1;
+        total_lines += 1;
+    }
+
+    // Skip to the requested offset
+    while current_offset < offset {
+        if lines.next_line().await.map_err(|e| e.to_string())?.is_none() {
+            return Ok((chunks, true)); // Reached end of file
+        }
+        current_offset += 1;
+    }
+
+    while let Some(line) = lines.next_line().await.map_err(|e| e.to_string())? {
+        current_chunk.push_str(&line);
+        current_chunk.push('\n');
+        line_count += 1;
+        total_lines += 1;
+
+        if line_count >= chunkSize {
+            chunk_number += 1;
+            chunks.push(current_chunk);
+            let elapsed = start.elapsed();
+            println!("Processed chunk {} ({} lines, {} total lines) in {:.2?}", 
+                chunk_number, line_count, total_lines, elapsed);
+            
+            // Return if we've reached the batch size
+            if chunks.len() >= batch_size {
+                println!("Returning batch of {} chunks", chunks.len());
+                return Ok((chunks, false)); // false indicates there might be more chunks
+            }
+            
+            current_chunk = String::with_capacity(chunkSize * 100);
+            line_count = 0;
+        }
+    }
+
+    // Push the last chunk if it's not empty
+    if !current_chunk.is_empty() {
+        chunk_number += 1;
+        chunks.push(current_chunk);
+        let elapsed = start.elapsed();
+        println!("Processed final chunk {} ({} lines, {} total lines) in {:.2?}", 
+            chunk_number, line_count, total_lines, elapsed);
+    }
+
+    println!("Finished reading file. Total chunks in this batch: {}, Total lines: {}, Time: {:.2?}", 
+        chunks.len(), total_lines, start.elapsed());
+
+    Ok((chunks, true)) // true indicates this is the last batch
 }
