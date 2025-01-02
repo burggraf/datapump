@@ -390,6 +390,13 @@ export default class MigrationCard {
         this.cancellationRequested = false;
         this.migrationInProgress = true;
 
+        // Analyze schema first
+        const schemaInfo = await this.analyzeSchema();
+        console.log("Schema Analysis Results:");
+        console.log("Field Delimiter:", schemaInfo.delimiter);
+        console.log("Line Break:", schemaInfo.linebreak);
+        console.log("Fields:", schemaInfo.fields);
+
         // Reset cancellation flag in Rust
         await invoke("reset_cancellation");
 
