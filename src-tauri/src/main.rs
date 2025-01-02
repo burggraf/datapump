@@ -5,6 +5,7 @@ mod commands;
 mod csv_reader;
 mod csv_schema;
 mod postgres;
+mod postgres_csv_import;
 mod postgres_writer;
 mod sqlite_writer;
 
@@ -76,7 +77,8 @@ fn main() {
             commands::csv_to_sqlite,
             commands::csv_to_postgres,
             commands::cancel_migration,
-            open_file_dialog
+            open_file_dialog,
+            postgres_csv_import::import_csv_to_postgres
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

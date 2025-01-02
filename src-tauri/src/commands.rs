@@ -2,6 +2,7 @@
 
 use crate::csv_reader; // new module for CSV reading
 use crate::csv_schema; // your existing csv_schema module
+use crate::postgres_csv_import; // module for PostgreSQL CSV import
 use crate::postgres_writer; // new module for PostgreSQL writing
 use crate::sqlite_writer; // new module for SQLite writing
 use serde::{Deserialize, Serialize};
@@ -398,3 +399,7 @@ pub async fn csv_to_sqlite(
 
     Ok(())
 }
+
+pub use crate::postgres_csv_import::*;
+pub use crate::postgres_writer::*;
+pub use crate::sqlite_writer::*;
