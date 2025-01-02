@@ -1,19 +1,53 @@
-use std::error::Error;
 use futures_util::SinkExt;
 use std::pin::pin;
 use tokio::fs::File;
-use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
-use tokio_postgres::{Client, NoTls};
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio_postgres::NoTls;
 use bytes::Bytes;
 use csv::ReaderBuilder;
 use std::fs;
+use crate::commands::ProgressEvent;
+use tauri::Emitter;
 
 #[tauri::command]
 pub async fn import_csv_to_postgres(
+    window: tauri::Window,
     connection_string: String,
     path_to_file: String,
     table_name: String,
 ) -> Result<(), String> {
+    // Emit initial progress event
+    let _ = window.emit(
+        "migration_progress",
+        ProgressEvent {
+            total_rows: 0,
+            processed_rows: 0,
+            row_count: 0,
+            batch_size: 0,
+            status: "counting_rows".to_string(),
+            message: Some("Starting CSV import".to_string()),
+        },
+    );
+
+    // Count total rows for progress reporting
+    let total_rows = fs::read_to_string(&path_to_file)
+        .map_err(|e| e.to_string())?
+        .lines()
+        .count()
+        .saturating_sub(1); // Subtract 1 for header row
+
+    let _ = window.emit(
+        "migration_progress",
+        ProgressEvent {
+            total_rows,
+            processed_rows: 0,
+            row_count: 0,
+            batch_size: 0,
+            status: "connecting".to_string(),
+            message: Some("Connecting to PostgreSQL".to_string()),
+        },
+    );
+
     // Connect to PostgreSQL
     let (client, connection) = tokio_postgres::connect(&connection_string, NoTls)
         .await
@@ -39,6 +73,18 @@ pub async fn import_csv_to_postgres(
         .collect();
 
     // Create table if it doesn't exist
+    let _ = window.emit(
+        "migration_progress",
+        ProgressEvent {
+            total_rows,
+            processed_rows: 0,
+            row_count: 0,
+            batch_size: 0,
+            status: "creating_table".to_string(),
+            message: Some("Creating table if not exists".to_string()),
+        },
+    );
+
     let create_table_sql = format!(
         "CREATE TABLE IF NOT EXISTS \"{}\" ({})",
         table_name,
@@ -54,33 +100,78 @@ pub async fn import_csv_to_postgres(
         .await
         .map_err(|e| format!("Failed to create table: {}", e))?;
 
+    let _ = window.emit(
+        "migration_progress",
+        ProgressEvent {
+            total_rows,
+            processed_rows: 0,
+            row_count: 0,
+            batch_size: 0,
+            status: "copying_data".to_string(),
+            message: Some("Starting COPY operation".to_string()),
+        },
+    );
+
     // Now proceed with COPY operation
     let file = File::open(&path_to_file).await.map_err(|e| e.to_string())?;
     let mut reader = BufReader::new(file);
 
     // Start COPY operation
-    let mut writer = client
+    let writer = client
         .copy_in(&format!("COPY {} FROM STDIN WITH CSV HEADER", table_name))
         .await
         .map_err(|e| e.to_string())?;
     
     let mut writer = pin!(writer);
-    
     let mut buffer = String::new();
+    let mut processed_rows = 0;
+    let mut last_logged = 0;
+    
     while reader
         .read_line(&mut buffer)
         .await
         .map_err(|e| e.to_string())?
         > 0
     {
+        processed_rows += 1;
+        
+        // Log progress every 10,000 rows
+        if processed_rows - last_logged >= 10_000 {
+            last_logged = processed_rows;
+            let _ = window.emit(
+                "migration_progress",
+                ProgressEvent {
+                    total_rows,
+                    processed_rows,
+                    row_count: processed_rows,
+                    batch_size: 0,
+                    status: "processing".to_string(),
+                    message: None,
+                },
+            );
+        }
+
         // Convert the buffer to Bytes
         let line_bytes = Bytes::from(buffer.as_bytes().to_vec());
-        writer.as_mut().send(line_bytes).await.map_err(|e| e.to_string())?;
+        writer.send(line_bytes).await.map_err(|e| e.to_string())?;
         buffer.clear();
     }
 
     // Complete COPY operation
     writer.as_mut().finish().await.map_err(|e| e.to_string())?;
+
+    // Final progress event
+    let _ = window.emit(
+        "migration_progress",
+        ProgressEvent {
+            total_rows,
+            processed_rows,
+            row_count: processed_rows,
+            batch_size: 0,
+            status: "complete".to_string(),
+            message: Some(format!("Successfully imported {} rows", processed_rows)),
+        },
+    );
 
     Ok(())
 }
