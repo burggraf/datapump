@@ -13,6 +13,12 @@ use tauri::Emitter;
 // This static remains here so we can set/cancel across the entire operation.
 static CANCELLATION_REQUESTED: OnceLock<AtomicBool> = OnceLock::new();
 
+pub fn is_cancellation_requested() -> bool {
+    CANCELLATION_REQUESTED
+        .get_or_init(|| AtomicBool::new(false))
+        .load(Ordering::SeqCst)
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProgressEvent {
     pub total_rows: usize,
@@ -27,6 +33,13 @@ pub struct ProgressEvent {
 pub async fn cancel_migration() -> Result<(), String> {
     let flag = CANCELLATION_REQUESTED.get_or_init(|| AtomicBool::new(false));
     flag.store(true, Ordering::SeqCst);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn reset_cancellation() -> Result<(), String> {
+    let flag = CANCELLATION_REQUESTED.get_or_init(|| AtomicBool::new(false));
+    flag.store(false, Ordering::SeqCst);
     Ok(())
 }
 

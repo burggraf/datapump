@@ -6,7 +6,7 @@ use tokio_postgres::NoTls;
 use bytes::Bytes;
 use csv::ReaderBuilder;
 use std::fs;
-use crate::commands::ProgressEvent;
+use crate::commands::{ProgressEvent, is_cancellation_requested};
 use tauri::Emitter;
 
 #[tauri::command]
@@ -133,6 +133,29 @@ pub async fn import_csv_to_postgres(
         .map_err(|e| e.to_string())?
         > 0
     {
+        // Check for cancellation
+        if is_cancellation_requested() {
+            // Attempt to finish the current COPY operation gracefully
+            if let Err(e) = writer.as_mut().finish().await {
+                eprintln!("Error finishing COPY operation during cancellation: {}", e);
+            }
+            
+            // Emit cancellation event
+            let _ = window.emit(
+                "migration_progress",
+                ProgressEvent {
+                    total_rows,
+                    processed_rows,
+                    row_count: processed_rows,
+                    batch_size: 0,
+                    status: "cancelled".to_string(),
+                    message: Some("Migration cancelled by user".to_string()),
+                },
+            );
+            
+            return Err("Migration cancelled by user".to_string());
+        }
+
         processed_rows += 1;
         
         // Log progress every 10,000 rows

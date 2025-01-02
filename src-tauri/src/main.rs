@@ -77,6 +77,7 @@ fn main() {
             commands::csv_to_sqlite,
             commands::csv_to_postgres,
             commands::cancel_migration,
+            commands::reset_cancellation,
             open_file_dialog,
             postgres_csv_import::import_csv_to_postgres
         ])

@@ -129,6 +129,9 @@ export default class MigrationCard {
         this.cancellationRequested = false;
         this.migrationInProgress = true;
 
+        // Reset cancellation flag in Rust
+        await invoke("reset_cancellation");
+
         let ts = +new Date();
         // Setup event listener
         const unlisten = await listen<ProgressEvent>("migration_progress", (event) => {
@@ -140,15 +143,18 @@ export default class MigrationCard {
             this.status = event.payload.status;
             this.message = event.payload.message || "";
             const elapsed = (+new Date() - ts) / 1000;
-            const rps = this.processedRows / elapsed;
-            this.rows_per_second = Math.round(this.processedRows / elapsed);
-            // calculate estimated time remaining
-            let timeRemaining = (this.totalRows - this.processedRows) / rps;
-            if (timeRemaining > 0 && isFinite(timeRemaining)) {
-                const minutes = Math.floor(timeRemaining / 60);
+            const rps = elapsed > 0 ? this.processedRows / elapsed : 0;
+            this.rows_per_second = Math.round(rps);
+            
+            // Calculate time remaining only if we have a valid rate and total rows
+            if (rps > 0 && this.totalRows > 0 && this.processedRows < this.totalRows) {
+                let timeRemaining = (this.totalRows - this.processedRows) / rps;
+                const hours = Math.floor(timeRemaining / 3600);
+                const minutes = Math.floor((timeRemaining % 3600) / 60);
                 const seconds = Math.floor(timeRemaining % 60);
-                this.timeRemainingDisplay = `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
+                this.timeRemainingDisplay = `${hours}h ${minutes}m ${seconds}s`;
             }
+            
             if (this.status === "parsing_schema_complete" || this.status === "counted_rows") {
                 ts = +new Date();
             }
@@ -200,6 +206,9 @@ export default class MigrationCard {
         this.cancellationRequested = false;
         this.migrationInProgress = true;
 
+        // Reset cancellation flag in Rust
+        await invoke("reset_cancellation");
+
         let ts = +new Date();
         // Setup event listener
         const unlisten = await listen<ProgressEvent>("migration_progress", (event) => {
@@ -211,8 +220,17 @@ export default class MigrationCard {
             this.status = event.payload.status;
             this.message = event.payload.message || "";
             const elapsed = (+new Date() - ts) / 1000;
-            const rps = this.processedRows / elapsed;
-            this.rows_per_second = Math.round(this.processedRows / elapsed);
+            const rps = elapsed > 0 ? this.processedRows / elapsed : 0;
+            this.rows_per_second = Math.round(rps);
+            
+            // Calculate time remaining only if we have a valid rate and total rows
+            if (rps > 0 && this.totalRows > 0 && this.processedRows < this.totalRows) {
+                let timeRemaining = (this.totalRows - this.processedRows) / rps;
+                const hours = Math.floor(timeRemaining / 3600);
+                const minutes = Math.floor((timeRemaining % 3600) / 60);
+                const seconds = Math.floor(timeRemaining % 60);
+                this.timeRemainingDisplay = `${hours}h ${minutes}m ${seconds}s`;
+            }
             
             if (this.status === "parsing_schema_complete" || this.status === "counted_rows") {
                 ts = +new Date();
@@ -229,9 +247,14 @@ export default class MigrationCard {
                 tableName: this.tableName
             });
         } catch (error) {
+            // Don't treat cancellation as an error
+            if (error === "Migration cancelled by user") {
+                console.log("Migration cancelled by user");
+                return;
+            }
+            
             console.error("Error during CSV to PostgreSQL migration:", error);
             this.status = "Error: " + (error as string) || "ERROR";
-            this.migrationInProgress = false;
             throw error;
         } finally {
             // Clean up event listener
