@@ -435,7 +435,10 @@ export default class MigrationCard {
             const result = await invoke("import_csv_to_postgres", {
                 connectionString,
                 pathToFile: this.sourcePath,
-                tableName: this.tableName
+                tableName: this.tableName,
+                delimiter: schemaInfo.delimiter,
+                linebreak: schemaInfo.linebreak,
+                fields: Object.entries(schemaInfo.fields).map(([name, type]) => ({ name, type }))
             });
         } catch (error) {
             // Don't treat cancellation as an error

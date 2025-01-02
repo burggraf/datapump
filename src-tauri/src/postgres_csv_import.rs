@@ -8,6 +8,7 @@ use csv::ReaderBuilder;
 use std::fs;
 use crate::commands::{ProgressEvent, is_cancellation_requested};
 use tauri::Emitter;
+use serde_json::Value;
 
 #[tauri::command]
 pub async fn import_csv_to_postgres(
@@ -15,7 +16,15 @@ pub async fn import_csv_to_postgres(
     connection_string: String,
     path_to_file: String,
     table_name: String,
+    delimiter: String,
+    linebreak: String,
+    fields: Vec<Value>,
 ) -> Result<(), String> {
+    // Debug print the new parameters
+    println!("Received delimiter: {}", delimiter);
+    println!("Received linebreak: {}", linebreak);
+    println!("Received fields: {:?}", fields);
+
     // Emit initial progress event
     let _ = window.emit(
         "migration_progress",
