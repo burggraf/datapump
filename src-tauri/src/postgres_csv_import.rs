@@ -10,6 +10,48 @@ use crate::commands::{ProgressEvent, is_cancellation_requested};
 use tauri::Emitter;
 use serde_json::Value;
 
+#[derive(Debug)]
+struct Field {
+    name: String,
+    field_type: String,
+}
+
+impl Field {
+    fn to_postgres_type(&self) -> String {
+        match self.field_type.as_str() {
+            "integer" => "INTEGER".to_string(),
+            "number" => "NUMERIC".to_string(),
+            "date" => "TIMESTAMP".to_string(),
+            _ => "TEXT".to_string()
+        }
+    }
+}
+
+fn parse_fields(fields: Vec<Value>) -> Result<Vec<Field>, String> {
+    fields.into_iter().map(|field| {
+        let obj = field.as_object().ok_or("Field is not an object")?;
+        let name = obj.get("name")
+            .and_then(|v| v.as_str())
+            .ok_or("Field name not found or not a string")?
+            .to_string();
+        let field_type = obj.get("type")
+            .and_then(|v| v.as_str())
+            .ok_or("Field type not found or not a string")?
+            .to_string();
+        
+        Ok(Field { name, field_type })
+    }).collect()
+}
+
+fn create_table_sql(table_name: &str, fields: &[Field]) -> String {
+    let columns = fields.iter()
+        .map(|field| format!("{} {}", field.name, field.to_postgres_type()))
+        .collect::<Vec<_>>()
+        .join(", ");
+    
+    format!("CREATE TABLE IF NOT EXISTS {} ({})", table_name, columns)
+}
+
 #[tauri::command]
 pub async fn import_csv_to_postgres(
     window: tauri::Window,
@@ -24,6 +66,14 @@ pub async fn import_csv_to_postgres(
     println!("Received delimiter: {}", delimiter);
     println!("Received linebreak: {}", linebreak);
     println!("Received fields: {:?}", fields);
+
+    // Parse fields into our internal representation
+    let parsed_fields = parse_fields(fields)?;
+    println!("Parsed fields: {:?}", parsed_fields);
+    
+    // Generate CREATE TABLE SQL
+    let create_table_sql = create_table_sql(&table_name, &parsed_fields);
+    println!("Generated SQL: {}", create_table_sql);
 
     // Emit initial progress event
     let _ = window.emit(
@@ -69,18 +119,6 @@ pub async fn import_csv_to_postgres(
         }
     });
 
-    // First read CSV headers synchronously to determine column names and types
-    let mut csv_reader = ReaderBuilder::new()
-        .has_headers(true)
-        .from_path(&path_to_file)
-        .map_err(|e| e.to_string())?;
-    
-    let headers = csv_reader.headers().map_err(|e| e.to_string())?;
-    let columns: Vec<(String, String)> = headers
-        .iter()
-        .map(|header| (header.to_string(), "text".to_string()))
-        .collect();
-
     // Create table if it doesn't exist
     let _ = window.emit(
         "migration_progress",
@@ -92,16 +130,6 @@ pub async fn import_csv_to_postgres(
             status: "creating_table".to_string(),
             message: Some("Creating table if not exists".to_string()),
         },
-    );
-
-    let create_table_sql = format!(
-        "CREATE TABLE IF NOT EXISTS \"{}\" ({})",
-        table_name,
-        columns
-            .iter()
-            .map(|(name, typ)| format!("\"{}\" {}", name, typ))
-            .collect::<Vec<_>>()
-            .join(", ")
     );
 
     client
@@ -127,7 +155,7 @@ pub async fn import_csv_to_postgres(
 
     // Start COPY operation
     let writer = client
-        .copy_in(&format!("COPY {} FROM STDIN WITH CSV HEADER", table_name))
+        .copy_in(&format!("COPY {} FROM STDIN WITH CSV HEADER DELIMITER '{}'", table_name, delimiter))
         .await
         .map_err(|e| e.to_string())?;
     
@@ -135,6 +163,7 @@ pub async fn import_csv_to_postgres(
     let mut buffer = String::new();
     let mut processed_rows = 0;
     let mut last_logged = 0;
+    let mut first_line = true;  // Skip the header row since we specified HEADER in COPY
     
     while reader
         .read_line(&mut buffer)
@@ -142,6 +171,12 @@ pub async fn import_csv_to_postgres(
         .map_err(|e| e.to_string())?
         > 0
     {
+        if first_line {
+            first_line = false;
+            buffer.clear();
+            continue;
+        }
+
         // Check for cancellation
         if is_cancellation_requested() {
             // Attempt to finish the current COPY operation gracefully
@@ -187,7 +222,12 @@ pub async fn import_csv_to_postgres(
             );
         }
 
-        // Convert the buffer to Bytes
+        // Ensure the line ends with a newline
+        if !buffer.ends_with('\n') {
+            buffer.push('\n');
+        }
+
+        // Convert the buffer to Bytes and write
         let line_bytes = Bytes::from(buffer.as_bytes().to_vec());
         writer.send(line_bytes).await.map_err(|e| e.to_string())?;
         buffer.clear();
