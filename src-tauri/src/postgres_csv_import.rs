@@ -80,6 +80,32 @@ pub async fn import_csv_to_postgres(
     linebreak: String,
     fields: Vec<Value>,
 ) -> Result<(), String> {
+    // First, check if the table already exists
+    let (client, connection) = tokio_postgres::connect(&connection_string, NoTls)
+        .await
+        .map_err(|e| format!("Failed to connect to database: {}", e))?;
+    
+    tokio::spawn(async move {
+        if let Err(e) = connection.await {
+            eprintln!("connection error: {}", e);
+        }
+    });
+
+    // Query to check if table exists
+    let exists_query = format!(
+        "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = $1)"
+    );
+    
+    let exists: bool = client
+        .query_one(&exists_query, &[&table_name])
+        .await
+        .map_err(|e| format!("Failed to check if table exists: {}", e))?
+        .get(0);
+
+    if exists {
+        return Err(format!("Table '{}' already exists. Aborting import.", table_name));
+    }
+
     // Debug print the new parameters
     println!("Received delimiter: {}", delimiter);
     println!("Received linebreak: {}", linebreak);
