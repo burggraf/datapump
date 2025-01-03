@@ -10,6 +10,7 @@ use crate::commands::{ProgressEvent, is_cancellation_requested};
 use crate::postgres_writer::{start_copy, finish_copy};
 use tauri::Emitter;
 use serde_json::Value;
+use chrono;
 
 #[derive(Debug)]
 struct Field {
@@ -22,8 +23,25 @@ impl Field {
         match self.field_type.as_str() {
             "integer" => "INTEGER".to_string(),
             "number" => "NUMERIC".to_string(),
-            "date" => "TIMESTAMP".to_string(),
+            "date" => "DATE".to_string(),
             _ => "TEXT".to_string()
+        }
+    }
+
+    fn validate_value(&self, value: &str) -> bool {
+        if value.trim().is_empty() {
+            return true; // Allow empty values
+        }
+
+        match self.field_type.as_str() {
+            "integer" => value.parse::<i64>().is_ok(),
+            "number" => value.parse::<f64>().is_ok(),
+            "date" => {
+                chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").is_ok() || // YYYY-MM-DD
+                chrono::NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S").is_ok() || // YYYY-MM-DD HH:MM:SS
+                chrono::NaiveDate::parse_from_str(value, "%m/%d/%Y").is_ok() // MM/DD/YYYY
+            },
+            _ => true // Text type accepts any value
         }
     }
 }
@@ -138,6 +156,8 @@ pub async fn import_csv_to_postgres(
         .await
         .map_err(|e| format!("Failed to create table: {}", e))?;
 
+    println!("Table created successfully");
+
     let _ = window.emit(
         "migration_progress",
         ProgressEvent {
@@ -167,6 +187,8 @@ pub async fn import_csv_to_postgres(
     let mut buffer = String::new();
     let mut processed_rows = 0;
     let mut last_logged = 0;
+    let mut is_header = true;  // Flag to skip header row
+    let mut sample_rows = 0;  // Counter for sample rows to print
 
     // Process the file line by line
     loop {
@@ -188,8 +210,79 @@ pub async fn import_csv_to_postgres(
                     continue;
                 }
 
+                // Skip header row
+                if is_header {
+                    println!("Header row: {}", buffer.trim());
+                    is_header = false;
+                    buffer.clear();
+                    continue;
+                }
+
+                // Split the line into fields and validate each one
+                let split_char = if delimiter == "\t" { '\t' } else { ',' };
+                let fields: Vec<&str> = buffer.trim().split(split_char).collect();
+                
+                // Print first few rows for debugging
+                if sample_rows < 5 {
+                    println!("Sample row {}: {:?}", sample_rows + 1, fields);
+                    sample_rows += 1;
+                }
+
+                let mut valid_line = true;
+                let mut validated_fields = Vec::new();
+
+                for (i, field) in fields.iter().enumerate() {
+                    if i >= parsed_fields.len() {
+                        valid_line = false;
+                        eprintln!("Row {}: Too many fields", processed_rows + 1);
+                        break;
+                    }
+
+                    let field_value = field.trim().trim_matches('"');
+                    if !parsed_fields[i].validate_value(field_value) {
+                        valid_line = false;
+                        eprintln!(
+                            "Row {}: Invalid value '{}' for {} field '{}'",
+                            processed_rows + 1,
+                            field_value,
+                            parsed_fields[i].field_type,
+                            parsed_fields[i].name
+                        );
+                        break;
+                    }
+                    validated_fields.push(field_value);
+                }
+
+                if !valid_line {
+                    // Skip invalid lines but continue processing
+                    buffer.clear();
+                    processed_rows += 1;
+                    continue;
+                }
+
+                // Construct a valid PostgreSQL COPY line
+                let copy_line = validated_fields
+                    .iter()
+                    .map(|&f| {
+                        if f.is_empty() {
+                            "\\N".to_string() // PostgreSQL NULL value
+                        } else if f.contains(&delimiter) || f.contains('"') || f.contains('\\') || f.contains('\n') {
+                            format!("\"{}\"", f.replace('"', "\"\""))
+                        } else {
+                            f.to_string()
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join(&delimiter);
+
+                // Print first few copy lines for debugging
+                if sample_rows <= 5 {
+                    println!("Sample COPY line {}: {}", sample_rows, copy_line);
+                }
+
                 // Convert the buffer to BytesMut and write
-                let line_bytes = BytesMut::from(buffer.as_bytes());
+                let mut line_bytes = BytesMut::from(copy_line.as_bytes());
+                line_bytes.extend_from_slice(b"\n");
                 writer.send(line_bytes).await.map_err(|e| e.to_string())?;
                 buffer.clear();
                 processed_rows += 1;
@@ -197,6 +290,7 @@ pub async fn import_csv_to_postgres(
                 // Log progress every 10,000 rows
                 if processed_rows - last_logged >= 10_000 {
                     last_logged = processed_rows;
+                    println!("Processed {} rows", processed_rows);
                     let _ = window.emit(
                         "migration_progress",
                         ProgressEvent {
@@ -218,8 +312,10 @@ pub async fn import_csv_to_postgres(
         }
     }
 
+    println!("Finishing COPY operation after {} rows", processed_rows);
     // Complete COPY operation
     finish_copy(writer).await.map_err(|e| e.to_string())?;
+    println!("COPY operation completed successfully");
 
     // Final progress event
     let _ = window.emit(

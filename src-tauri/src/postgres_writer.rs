@@ -68,9 +68,11 @@ pub async fn start_copy(
     };
 
     let copy_sql = format!(
-        "COPY {} ({}) FROM STDIN WITH (FORMAT CSV, DELIMITER {})",
+        "COPY \"{}\" ({}) FROM STDIN WITH (FORMAT CSV, DELIMITER {})",
         table_name, column_names, delimiter_str
     );
+    
+    println!("Executing COPY command: {}", copy_sql);
     
     let writer = client
         .copy_in(&copy_sql)
