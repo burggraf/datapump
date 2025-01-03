@@ -20,7 +20,7 @@ struct Field {
 impl Field {
     fn to_postgres_type(&self) -> String {
         match self.field_type.as_str() {
-            "integer" => "INTEGER".to_string(),
+            "integer" => "NUMERIC".to_string(),
             "number" => "NUMERIC".to_string(),
             "date" => "DATE".to_string(),
             _ => "TEXT".to_string()
@@ -33,7 +33,7 @@ impl Field {
         }
 
         match self.field_type.as_str() {
-            "integer" => value.parse::<i64>().is_ok(),
+            "integer" => value.parse::<f64>().is_ok(),
             "number" => value.parse::<f64>().is_ok(),
             "date" => {
                 chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").is_ok() || // YYYY-MM-DD
@@ -231,7 +231,7 @@ pub async fn import_csv_to_postgres(
 
         // Parse the line using csv crate
         let mut csv_reader = ReaderBuilder::new()
-            .delimiter(delimiter.as_bytes()[0])
+            .delimiter(b';')
             .has_headers(false)
             .flexible(true)
             .trim(Trim::All)
