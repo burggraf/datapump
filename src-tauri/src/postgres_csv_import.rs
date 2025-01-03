@@ -164,9 +164,30 @@ pub async fn import_csv_to_postgres(
         result
     };
 
-    // Split into lines
-    let lines: Vec<&str> = content.split('\n').collect();
+    // Convert the linebreak string to actual characters
+    let line_delimiter = match linebreak.as_str() {
+        "\\r\\n" | "\r\n" => "\r\n",
+        "\\r" | "\r" => "\r",
+        "\\n" | "\n" => "\n",
+        _ => "\n", // Default to \n if unspecified
+    };
+    
+    println!("Using line delimiter: {:?}", line_delimiter);
+    println!("Content length: {}", content.len());
+
+    // Split into lines based on the specified line delimiter
+    let lines: Vec<&str> = content.split(line_delimiter)
+        .filter(|line| !line.is_empty())
+        .collect();
+    
+    println!("Number of lines after splitting: {}", lines.len());
+    if !lines.is_empty() {
+        println!("First line length: {}", lines[0].len());
+        println!("First line preview: {:?}", &lines[0][..std::cmp::min(100, lines[0].len())]);
+    }
+
     let total_rows = lines.len().saturating_sub(1); // Subtract 1 for header
+    println!("Total rows (excluding header): {}", total_rows);
 
     let _ = window.emit(
         "migration_progress",
@@ -208,11 +229,6 @@ pub async fn import_csv_to_postgres(
             continue;
         }
 
-        // Skip empty lines
-        if line.trim().is_empty() {
-            continue;
-        }
-
         // Parse the line using csv crate
         let mut csv_reader = ReaderBuilder::new()
             .delimiter(delimiter.as_bytes()[0])
@@ -221,18 +237,25 @@ pub async fn import_csv_to_postgres(
             .trim(Trim::All)
             .from_reader(line.as_bytes());
 
+        println!("Parsing line: {:?}", line);
+        
         let mut valid_line = true;
         let mut validated_fields = Vec::new();
 
         if let Some(result) = csv_reader.records().next() {
             match result {
                 Ok(record) => {
+                    println!("Successfully parsed record with {} fields", record.len());
                     for (i, field) in record.iter().enumerate() {
                         if i >= parsed_fields.len() {
                             valid_line = false;
-                            eprintln!("Row {}: Too many fields", processed_rows + 1);
+                            eprintln!("Row {}: Too many fields (got {}, expected {})", 
+                                processed_rows + 1, record.len(), parsed_fields.len());
                             break;
                         }
+
+                        println!("Field {}: {:?} (type: {})", 
+                            i, field, parsed_fields[i].field_type);
 
                         if !parsed_fields[i].validate_value(field) {
                             valid_line = false;
