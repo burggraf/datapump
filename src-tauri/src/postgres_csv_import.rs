@@ -1,6 +1,6 @@
 use futures_util::SinkExt;
 use tokio::fs::File;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncBufReadExt, BufReader, AsyncSeekExt};
 use tokio_postgres::NoTls;
 use bytes::BytesMut;
 use crate::commands::{ProgressEvent, is_cancellation_requested};
@@ -11,7 +11,7 @@ use chrono;
 use csv::{ReaderBuilder, Trim};
 use std::str;
 use serde::{Serialize, Deserialize};
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, SeekFrom};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Field {
@@ -168,20 +168,36 @@ pub async fn import_csv_to_postgres(
 
     println!("Table created successfully");
 
-    // Count total lines
+    // Count total lines using sync I/O
     println!("Counting total rows...");
     let mut total_rows = 0;
-    let file = std::fs::File::open(&path_to_file)
-        .map_err(|e| format!("Failed to open file: {}", e))?;
-    let reader = BufReader::new(file);
-    
-    // Count lines but skip the header
-    for _ in reader.lines() {
-        total_rows += 1;
+    {
+        let file = std::fs::File::open(&path_to_file)
+            .map_err(|e| format!("Failed to open file: {}", e))?;
+        let reader = std::io::BufReader::new(file);
+        
+        // Count lines but skip the header
+        for _ in reader.lines() {
+            total_rows += 1;
+        }
+        total_rows -= 1; // Subtract header row
     }
-    total_rows -= 1; // Subtract header row
-    
     println!("Total rows (excluding header): {}", total_rows);
+
+    // Now open file asynchronously for processing
+    let file = tokio::fs::File::open(&path_to_file)
+        .await
+        .map_err(|e| format!("Failed to open file: {}", e))?;
+
+    // Create buffered reader with custom buffer size
+    const BUFFER_SIZE: usize = 8 * 1024 * 1024;
+    let reader = tokio::io::BufReader::with_capacity(BUFFER_SIZE, file);
+    let mut lines = reader.lines();
+
+    // Skip header line
+    if let Some(header) = lines.next_line().await.map_err(|e| e.to_string())? {
+        println!("Skipped header: {}", header);
+    }
 
     // Start COPY operation
     println!("Starting COPY operation...");
@@ -207,39 +223,29 @@ pub async fn import_csv_to_postgres(
 
     let mut processed_rows = 0;
     const BATCH_SIZE: usize = 10000;
-
-    // Process the file in streaming fashion
-    println!("Processing file...");
-    let mut reader = ReaderBuilder::new()
-        .delimiter(delimiter.as_bytes()[0])
-        .has_headers(true)
-        .flexible(true)
-        .from_path(&path_to_file)
-        .map_err(|e| format!("Failed to create CSV reader: {}", e))?;
-
-    // Get field types for binary conversion
-    let field_types: Vec<String> = parsed_fields.iter().map(|f| f.field_type.clone()).collect();
-
-    // Emit initial progress
-    let _ = window.emit(
-        "migration_progress",
-        ProgressEvent {
-            total_rows,
-            processed_rows: 0,
-            row_count: 0,
-            batch_size: BATCH_SIZE,
-            status: "copying_data".to_string(),
-            message: Some(format!("Starting import of {} rows...", total_rows)),
-        },
-    );
-
-    let start_time = std::time::Instant::now();
     let mut last_progress_update = std::time::Instant::now();
     const PROGRESS_UPDATE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
 
-    let mut batch: Vec<BytesMut> = Vec::with_capacity(BATCH_SIZE);
+    // Pre-allocate reusable buffers with larger sizes
+    let mut binary_buffer = BytesMut::with_capacity(256 * 1024);  // 256KB for binary buffer
+    let mut batch_buffer = BytesMut::with_capacity(2 * 1024 * 1024);  // 2MB for batching
+
+    // Pre-compute field processors
+    let field_processors: Vec<FieldProcessor> = parsed_fields
+        .iter()
+        .enumerate()
+        .map(|(i, ft)| FieldProcessor {
+            field_type: ft.field_type.clone(),
+            index: i,
+        })
+        .collect();
+
+    let mut batch_count = 0;
+    const BATCH_THRESHOLD: usize = 5000; // Increased batch size
     
-    for result in reader.records() {
+    let delim = delimiter.as_bytes()[0];
+
+    while let Some(line_result) = lines.next_line().await.map_err(|e| e.to_string())? {
         if is_cancellation_requested() {
             println!("Cancellation requested");
             if let Err(e) = finish_copy(writer).await {
@@ -248,23 +254,53 @@ pub async fn import_csv_to_postgres(
             return Err("Migration cancelled by user".to_string());
         }
 
-        let record = match result {
-            Ok(record) => record,
-            Err(e) => {
-                println!("Error reading record {}: {}", processed_rows + 1, e);
-                continue;
-            }
-        };
+        // Clear buffers for reuse
+        binary_buffer.clear();
 
-        // Convert record to Vec<String>
-        let record_values: Vec<String> = record.iter().map(|s| s.to_string()).collect();
+        // Process the line directly without storing references
+        let bytes = line_result.as_bytes();
+        let mut start = 0;
+        let mut field_count = 0;
+
+        // Write placeholder for field count
+        binary_buffer.extend_from_slice(&0i16.to_be_bytes());
         
-        // Create binary record
-        let binary_record = prepare_binary_record(&record_values, &field_types);
-        writer.send(binary_record).await.map_err(|e| {
-            println!("Error writing record: {}", e);
-            e.to_string()
-        })?;
+        // Process each field directly
+        for i in 0..bytes.len() {
+            if bytes[i] == delim {
+                if let Some(processor) = field_processors.get(field_count) {
+                    let field = unsafe { std::str::from_utf8_unchecked(&bytes[start..i]) };
+                    processor.process_value(field, &mut binary_buffer);
+                }
+                start = i + 1;
+                field_count += 1;
+            }
+        }
+        
+        // Process the last field
+        if let Some(processor) = field_processors.get(field_count) {
+            let field = unsafe { std::str::from_utf8_unchecked(&bytes[start..]) };
+            processor.process_value(field, &mut binary_buffer);
+            field_count += 1;
+        }
+
+        // Write actual field count at the start
+        let field_count_bytes = (field_count as i16).to_be_bytes();
+        binary_buffer[0] = field_count_bytes[0];
+        binary_buffer[1] = field_count_bytes[1];
+
+        // Add to batch buffer
+        batch_buffer.extend_from_slice(&binary_buffer);
+        batch_count += 1;
+
+        // Send batch if threshold reached
+        if batch_count >= BATCH_THRESHOLD {
+            writer.send(batch_buffer.split_to(batch_buffer.len())).await.map_err(|e| {
+                println!("Error writing batch: {}", e);
+                e.to_string()
+            })?;
+            batch_count = 0;
+        }
 
         processed_rows += 1;
 
@@ -286,7 +322,6 @@ pub async fn import_csv_to_postgres(
                     )),
                 },
             );
-            
             last_progress_update = std::time::Instant::now();
         }
     }
@@ -310,7 +345,7 @@ pub async fn import_csv_to_postgres(
     let _ = window.emit(
         "migration_progress",
         ProgressEvent {
-            total_rows: processed_rows,  // Use actual final count
+            total_rows,
             processed_rows,
             row_count: processed_rows,
             batch_size: BATCH_SIZE,
@@ -322,39 +357,34 @@ pub async fn import_csv_to_postgres(
     Ok(())
 }
 
-// Helper function to write binary header
-fn write_binary_header(header_buf: &mut BytesMut) {
-    // Write header format (0)
-    header_buf.extend_from_slice(&(0 as u8).to_be_bytes());
-    // Write header flags (0)
-    header_buf.extend_from_slice(&(0 as u16).to_be_bytes());
+struct FieldProcessor {
+    field_type: String,
+    index: usize,
 }
 
-// Helper function to prepare binary record
-fn prepare_binary_record(record_values: &[String], field_types: &[String]) -> BytesMut {
-    let mut binary_record = BytesMut::new();
-    
-    // Write number of fields
-    binary_record.extend_from_slice(&(record_values.len() as i16).to_be_bytes());
-    
-    for (value, field_type) in record_values.iter().zip(field_types.iter()) {
-        match field_type.as_str() {
+impl FieldProcessor {
+    fn process_value(&self, value: &str, binary_record: &mut BytesMut) {
+        match self.field_type.as_str() {
             "integer" => {
-                let value: i32 = value.parse().unwrap_or(0);
-                binary_record.extend_from_slice(&value.to_be_bytes());
+                if let Ok(value) = value.parse::<i32>() {
+                    binary_record.extend_from_slice(&value.to_be_bytes());
+                } else {
+                    binary_record.extend_from_slice(&0i32.to_be_bytes());
+                }
             },
             "number" => {
-                let value: f64 = value.parse().unwrap_or(0.0);
-                binary_record.extend_from_slice(&value.to_be_bytes());
+                if let Ok(value) = value.parse::<f64>() {
+                    binary_record.extend_from_slice(&value.to_be_bytes());
+                } else {
+                    binary_record.extend_from_slice(&0f64.to_be_bytes());
+                }
             },
             "date" => {
                 if let Ok(value) = chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d") {
-                    // Convert date to PostgreSQL date format (days since 2000-01-01)
                     let epoch = chrono::NaiveDate::from_ymd_opt(2000, 1, 1).unwrap();
                     let days = value.signed_duration_since(epoch).num_days() as i32;
                     binary_record.extend_from_slice(&days.to_be_bytes());
                 } else {
-                    // Write NULL for invalid dates
                     binary_record.extend_from_slice(&(-1i32).to_be_bytes());
                 }
             },
@@ -365,5 +395,12 @@ fn prepare_binary_record(record_values: &[String], field_types: &[String]) -> By
             }
         }
     }
-    binary_record
+}
+
+// Helper function to write binary header
+fn write_binary_header(header_buf: &mut BytesMut) {
+    // Write header format (0)
+    header_buf.extend_from_slice(&(0 as u8).to_be_bytes());
+    // Write header flags (0)
+    header_buf.extend_from_slice(&(0 as u16).to_be_bytes());
 }
