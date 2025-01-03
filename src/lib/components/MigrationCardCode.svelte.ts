@@ -79,40 +79,44 @@ export default class MigrationCard {
                 if (firstBatch) {
                     const firstChunkResults: { data: any[]; meta: Papa.ParseMeta } = await new Promise((resolve, reject) => {
                         console.log('Parsing first chunk to determine schema...');
-                        // Check for different delimiters in order of preference
+                        
+                        // Get first line and analyze it
                         const firstLine = chunks[0].split('\n')[0];
-                        let delimiter = ',';  // default
+                        console.log('Analyzing first line:', firstLine);
                         
-                        // Count occurrences of potential delimiters in the first line
-                        const delimiterCounts = {
-                            '\t': (firstLine.match(/\t/g) || []).length,
-                            ';': (firstLine.match(/;/g) || []).length,
-                            ',': (firstLine.match(/,/g) || []).length
-                        };
+                        // Count fields with different delimiters
+                        const testDelimiters = [',', '\t', ';'];
+                        const fieldCounts = testDelimiters.map(d => firstLine.split(d).length);
+                        console.log('Field counts by delimiter:', fieldCounts);
                         
-                        // Choose the delimiter that appears most frequently
-                        let maxCount = 0;
-                        for (const [delim, count] of Object.entries(delimiterCounts)) {
-                            if (count > maxCount) {
-                                maxCount = count;
-                                delimiter = delim;
-                            }
-                        }
+                        // Choose delimiter that gives the most fields
+                        const maxFields = Math.max(...fieldCounts);
+                        const delimiter = testDelimiters[fieldCounts.indexOf(maxFields)];
+                        console.log(`Selected delimiter: "${delimiter}" (${maxFields} fields)`);
                         
-                        console.log('Detected delimiter:', delimiter);
+                        // Set up timeout protection
+                        const timeout = setTimeout(() => {
+                            console.error('Papa.parse timeout after 30 seconds');
+                            reject(new Error('Parser timeout'));
+                        }, 30000);
                         
                         Papa.parse(chunks[0], {
                             header: true,
                             delimiter: delimiter,
                             skipEmptyLines: true,
                             complete: (results) => {
-                                console.log('First chunk parsed:', results.meta);
-                                // Store delimiter and linebreak from first chunk
+                                clearTimeout(timeout);
+                                console.log('First chunk parsed successfully:', {
+                                    rows: results.data.length,
+                                    fields: results.meta.fields?.length,
+                                    delimiter: results.meta.delimiter
+                                });
                                 fileDelimiter = delimiter;
                                 linebreak = results.meta.linebreak;
                                 resolve(results);
                             },
                             error: (error) => {
+                                clearTimeout(timeout);
                                 console.error('Error parsing first chunk:', error);
                                 reject(error);
                             }
@@ -413,8 +417,11 @@ export default class MigrationCard {
         this.migrationInProgress = true;
 
         try {
+            console.log("Starting migration with source:", this.sourcePath);
+            
             // Check if table exists first for PostgreSQL
             if (this.destinationType === "postgres") {
+                console.log("Checking if table exists:", this.tableName);
                 const exists = await invoke("check_postgres_table_exists", {
                     connectionString: this.getConnectionString(),
                     tableName: this.tableName
@@ -426,6 +433,7 @@ export default class MigrationCard {
             }
 
             // Analyze schema
+            console.log("Analyzing schema...");
             const schemaInfo = await this.analyzeSchema();
             console.log("Schema Analysis Results:");
             console.log("Field Delimiter:", schemaInfo.delimiter);
@@ -433,10 +441,12 @@ export default class MigrationCard {
             console.log("Fields:", schemaInfo.fields);
 
             // Reset cancellation flag in Rust
+            console.log("Resetting cancellation flag...");
             await invoke("reset_cancellation");
 
             let ts = +new Date();
             // Setup event listener
+            console.log("Setting up progress listener...");
             const unlisten = await listen<ProgressEvent>("migration_progress", (event) => {
                 if (this.cancellationRequested) return;
 
@@ -464,8 +474,13 @@ export default class MigrationCard {
             });
 
             try {
-                // Construct connection string for PostgreSQL
-                const connectionString = `postgresql://${this.destinationUser}:${this.destinationPassword}@${this.destinationHost}:${this.destinationPort}/${this.destinationDatabaseName}`;
+                console.log("Starting import to PostgreSQL...");
+                const connectionString = this.getConnectionString();
+                console.log("Using connection string (password hidden):", 
+                    connectionString.replace(/:[^:@]+@/, ':***@'));
+                
+                const fields = Object.entries(schemaInfo.fields).map(([name, type]) => ({ name, type }));
+                console.log("Prepared fields for import:", fields);
 
                 const result = await invoke("import_csv_to_postgres", {
                     connectionString,
@@ -473,8 +488,10 @@ export default class MigrationCard {
                     tableName: this.tableName,
                     delimiter: schemaInfo.delimiter,
                     linebreak: schemaInfo.linebreak,
-                    fields: Object.entries(schemaInfo.fields).map(([name, type]) => ({ name, type }))
+                    fields
                 });
+                
+                console.log("Import completed successfully");
             } catch (error) {
                 // Don't treat cancellation as an error
                 if (error === "Migration cancelled by user") {
@@ -486,12 +503,12 @@ export default class MigrationCard {
                 this.status = "Error: " + (error as string) || "ERROR";
                 throw error;
             } finally {
-                // Clean up event listener
+                console.log("Cleaning up...");
                 unlisten();
                 this.migrationInProgress = false;
             }
         } catch (error) {
-            console.error("Error during CSV to PostgreSQL migration:", error);
+            console.error("Error during migration process:", error);
             this.status = "Error: " + (error as string) || "ERROR";
             this.migrationInProgress = false;
             throw error;
@@ -499,7 +516,10 @@ export default class MigrationCard {
     }
 
     getConnectionString() {
-        return `postgresql://${this.destinationUser}:${this.destinationPassword}@${this.destinationHost}:${this.destinationPort}/${this.destinationDatabaseName}`;
+        // URL encode the password to handle special characters
+        const encodedPassword = encodeURIComponent(this.destinationPassword);
+        const encodedUser = encodeURIComponent(this.destinationUser);
+        return `postgresql://${encodedUser}:${encodedPassword}@${this.destinationHost}:${this.destinationPort}/${this.destinationDatabaseName}`;
     }
 }
 

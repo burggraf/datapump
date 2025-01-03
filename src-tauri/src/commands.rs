@@ -438,87 +438,55 @@ pub async fn csv_to_sqlite(
 #[tauri::command]
 pub async fn read_file_chunks(filePath: String, chunkSize: usize, offset: usize) -> Result<(Vec<String>, bool), String> {
     use tokio::fs::File;
-    use tokio::io::AsyncReadExt;
+    use tokio::io::{AsyncBufReadExt, BufReader};
     use std::time::Instant;
 
-    println!("Starting to read file from offset {}: {}", offset, filePath);
     let start = Instant::now();
+    println!("Starting to read file chunks from offset {}", offset);
     
-    let mut file = File::open(&filePath).await.map_err(|e| e.to_string())?;
+    let file = File::open(&filePath).await.map_err(|e| e.to_string())?;
+    let reader = BufReader::new(file);
+    let mut lines = reader.lines();
     
-    // Read the entire file into a buffer
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer).await.map_err(|e| e.to_string())?;
-    
-    // Helper function to convert Windows-1252 to UTF-8
-    fn convert_to_utf8(input: &[u8]) -> String {
-        let mut result = String::with_capacity(input.len());
-        for &byte in input {
-            let c = match byte {
-                0xF3 => 'ó',  // Handle ó character
-                0xF2 => 'ò',  // Handle ò character
-                0xF1 => 'ñ',  // Handle ñ character
-                0xE1 => 'á',  // Handle á character
-                0xE9 => 'é',  // Handle é character
-                0xED => 'í',  // Handle í character
-                0xFA => 'ú',  // Handle ú character
-                0x0D => '\r', // Handle CR
-                0x0A => '\n', // Handle LF
-                _ => byte as char,
-            };
-            result.push(c);
+    // Skip to offset
+    for _ in 0..offset {
+        if lines.next_line().await.map_err(|e| e.to_string())?.is_none() {
+            return Ok((Vec::new(), true));
         }
-        result
     }
-
-    // Convert the entire buffer to UTF-8
-    let content = convert_to_utf8(&buffer);
     
-    // Split into lines
-    let lines: Vec<&str> = content.split('\n').collect();
-    let total_lines = lines.len();
-    
-    if total_lines == 0 {
-        return Ok((Vec::new(), true));
-    }
-
     let mut chunks = Vec::new();
     let mut current_chunk = String::with_capacity(chunkSize * 100);
     let mut line_count = 0;
-    let mut chunk_number = 0;
+    let mut total_lines = 0;
     let batch_size = 10;
-
-    // Calculate the range of lines for this batch
-    let start_line = offset;
-    let end_line = (start_line + (chunkSize * batch_size)).min(total_lines);
-
-    for line in lines[start_line..end_line].iter() {
-        current_chunk.push_str(line);
+    let target_lines = chunkSize * batch_size;
+    
+    while let Some(line) = lines.next_line().await.map_err(|e| e.to_string())? {
+        current_chunk.push_str(&line);
         current_chunk.push('\n');
         line_count += 1;
+        total_lines += 1;
 
         if line_count >= chunkSize {
-            chunk_number += 1;
             chunks.push(current_chunk);
-            println!("Processed chunk {} ({} lines) in {:.2?}", 
-                chunk_number, line_count, start.elapsed());
-            
             current_chunk = String::with_capacity(chunkSize * 100);
             line_count = 0;
+        }
+
+        if total_lines >= target_lines {
+            break;
         }
     }
 
     // Push the last chunk if it's not empty
     if !current_chunk.is_empty() {
-        chunk_number += 1;
         chunks.push(current_chunk);
-        println!("Processed final chunk {} ({} lines) in {:.2?}", 
-            chunk_number, line_count, start.elapsed());
     }
 
-    println!("Finished reading file. Total chunks: {}, Total lines: {}, Time: {:.2?}", 
-        chunks.len(), end_line - start_line, start.elapsed());
-
-    let is_last_batch = end_line >= total_lines;
+    // Check if there are more lines
+    let is_last_batch = lines.next_line().await.map_err(|e| e.to_string())?.is_none();
+    
+    println!("Read {} chunks in {:?}", chunks.len(), start.elapsed());
     Ok((chunks, is_last_batch))
 }

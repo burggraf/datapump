@@ -11,6 +11,7 @@ use chrono;
 use csv::{ReaderBuilder, Trim};
 use std::str;
 use serde::{Serialize, Deserialize};
+use std::io::{BufRead, BufReader};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Field {
@@ -110,18 +111,19 @@ pub async fn import_csv_to_postgres(
     linebreak: String,
     fields: Vec<Value>,
 ) -> Result<(), String> {
-    // Debug print the new parameters
-    println!("Received delimiter: {}", delimiter);
-    println!("Received linebreak: {}", linebreak);
-    println!("Received fields: {:?}", fields);
+    println!("Starting import process");
+    println!("File: {}", path_to_file);
+    println!("Table: {}", table_name);
+    println!("Delimiter: {}", delimiter);
+    println!("Number of fields: {}", fields.len());
 
     // Parse fields into our internal representation
     let parsed_fields = parse_fields(fields)?;
-    println!("Parsed fields: {:?}", parsed_fields);
+    println!("Fields parsed successfully");
     
     // Generate CREATE TABLE SQL
     let create_table_sql = create_table_sql(&table_name, &parsed_fields);
-    println!("Generated SQL: {}", create_table_sql);
+    println!("Generated CREATE TABLE SQL: {}", create_table_sql);
 
     // Emit initial progress event
     let _ = window.emit(
@@ -137,9 +139,15 @@ pub async fn import_csv_to_postgres(
     );
 
     // Connect to PostgreSQL
+    println!("Connecting to PostgreSQL...");
     let (client, connection) = tokio_postgres::connect(&connection_string, NoTls)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            println!("Connection error: {}", e);
+            e.to_string()
+        })?;
+
+    println!("Connected successfully");
 
     // Spawn connection task
     tokio::spawn(async move {
@@ -148,96 +156,35 @@ pub async fn import_csv_to_postgres(
         }
     });
 
-    // Check if table exists
-    let exists = check_postgres_table_exists(connection_string.clone(), table_name.clone()).await?;
-    if exists {
-        return Err(format!("Table '{}' already exists. Aborting import.", table_name));
-    }
-
     // Create table if it doesn't exist
-    let _ = window.emit(
-        "migration_progress",
-        ProgressEvent {
-            total_rows: 0,
-            processed_rows: 0,
-            row_count: 0,
-            batch_size: 0,
-            status: "creating_table".to_string(),
-            message: Some("Creating table if not exists".to_string()),
-        },
-    );
-
+    println!("Creating table...");
     client
         .execute(&create_table_sql, &[])
         .await
-        .map_err(|e| format!("Failed to create table: {}", e))?;
+        .map_err(|e| {
+            println!("Failed to create table: {}", e);
+            format!("Failed to create table: {}", e)
+        })?;
 
     println!("Table created successfully");
 
-    // Read the entire file into memory
-    let mut file = File::open(&path_to_file).await.map_err(|e| e.to_string())?;
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer).await.map_err(|e| e.to_string())?;
-
-    // Convert Windows-1252 to UTF-8
-    let content = {
-        let mut result = String::with_capacity(buffer.len());
-        for &byte in &buffer {
-            let c = match byte {
-                0xF3 => 'ó',  // Handle ó character
-                0xF2 => 'ò',  // Handle ò character
-                0xF1 => 'ñ',  // Handle ñ character
-                0xE1 => 'á',  // Handle á character
-                0xE9 => 'é',  // Handle é character
-                0xED => 'í',  // Handle í character
-                0xFA => 'ú',  // Handle ú character
-                0x0D => '\r', // Handle CR
-                0x0A => '\n', // Handle LF
-                _ => char::from(byte),  // Convert u8 to char
-            };
-            result.push(c);
-        }
-        result
-    };
-
-    // Convert the linebreak string to actual characters
-    let line_delimiter = match linebreak.as_str() {
-        "\\r\\n" | "\r\n" => "\r\n",
-        "\\r" | "\r" => "\r",
-        "\\n" | "\n" => "\n",
-        _ => "\n", // Default to \n if unspecified
-    };
+    // Count total lines
+    println!("Counting total rows...");
+    let mut total_rows = 0;
+    let file = std::fs::File::open(&path_to_file)
+        .map_err(|e| format!("Failed to open file: {}", e))?;
+    let reader = BufReader::new(file);
     
-    println!("Using line delimiter: {:?}", line_delimiter);
-    println!("Content length: {}", content.len());
-
-    // Split into lines based on the specified line delimiter
-    let lines: Vec<&str> = content.split(line_delimiter)
-        .filter(|line| !line.is_empty())
-        .collect();
-    
-    println!("Number of lines after splitting: {}", lines.len());
-    if !lines.is_empty() {
-        println!("First line length: {}", lines[0].len());
-        println!("First line preview: {:?}", &lines[0][..std::cmp::min(100, lines[0].len())]);
+    // Count lines but skip the header
+    for _ in reader.lines() {
+        total_rows += 1;
     }
-
-    let total_rows = lines.len().saturating_sub(1); // Subtract 1 for header
+    total_rows -= 1; // Subtract header row
+    
     println!("Total rows (excluding header): {}", total_rows);
 
-    let _ = window.emit(
-        "migration_progress",
-        ProgressEvent {
-            total_rows,
-            processed_rows: 0,
-            row_count: 0,
-            batch_size: 0,
-            status: "copying_data".to_string(),
-            message: Some("Starting COPY operation".to_string()),
-        },
-    );
-
     // Start COPY operation
+    println!("Starting COPY operation...");
     let mut writer = start_copy(
         &client,
         &table_name,
@@ -245,133 +192,147 @@ pub async fn import_csv_to_postgres(
         &delimiter
     )
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| {
+        println!("Failed to start COPY: {}", e);
+        e
+    })?;
 
     let mut processed_rows = 0;
-    let mut is_header = true;
+    const BATCH_SIZE: usize = 10000;
+    let mut current_batch = String::with_capacity(BATCH_SIZE * 100); // Pre-allocate string buffer
 
-    // Process each line
-    for line in lines {
+    // Process the file in streaming fashion
+    println!("Processing file...");
+    let mut reader = ReaderBuilder::new()
+        .delimiter(delimiter.as_bytes()[0])
+        .has_headers(true)
+        .flexible(true)
+        .from_path(&path_to_file)
+        .map_err(|e| format!("Failed to create CSV reader: {}", e))?;
+
+    // Emit initial progress
+    let _ = window.emit(
+        "migration_progress",
+        ProgressEvent {
+            total_rows,
+            processed_rows: 0,
+            row_count: 0,
+            batch_size: BATCH_SIZE,
+            status: "copying_data".to_string(),
+            message: Some(format!("Starting import of {} rows...", total_rows)),
+        },
+    );
+
+    let start_time = std::time::Instant::now();
+    let mut last_progress_update = std::time::Instant::now();
+    const PROGRESS_UPDATE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
+
+    for result in reader.records() {
         if is_cancellation_requested() {
+            println!("Cancellation requested");
             if let Err(e) = finish_copy(writer).await {
                 eprintln!("Error finishing COPY operation during cancellation: {}", e);
             }
             return Err("Migration cancelled by user".to_string());
         }
 
-        // Skip header row
-        if is_header {
-            is_header = false;
-            continue;
-        }
-
-        // Parse the line using csv crate
-        let mut csv_reader = ReaderBuilder::new()
-            .delimiter(b';')
-            .has_headers(false)
-            .flexible(true)
-            .trim(Trim::All)
-            .from_reader(line.as_bytes());
-
-        println!("Parsing line: {:?}", line);
-        
-        let mut valid_line = true;
-        let mut validated_fields = Vec::new();
-
-        if let Some(result) = csv_reader.records().next() {
-            match result {
-                Ok(record) => {
-                    println!("Successfully parsed record with {} fields", record.len());
-                    for (i, field) in record.iter().enumerate() {
-                        if i >= parsed_fields.len() {
-                            valid_line = false;
-                            eprintln!("Row {}: Too many fields (got {}, expected {})", 
-                                processed_rows + 1, record.len(), parsed_fields.len());
-                            break;
-                        }
-
-                        println!("Field {}: {:?} (type: {})", 
-                            i, field, parsed_fields[i].field_type);
-
-                        if !parsed_fields[i].validate_value(field) {
-                            valid_line = false;
-                            eprintln!(
-                                "Row {}: Invalid value '{}' for {} field '{}'",
-                                processed_rows + 1,
-                                field,
-                                parsed_fields[i].field_type,
-                                parsed_fields[i].name
-                            );
-                            break;
-                        }
-                        validated_fields.push(field.to_string());
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Error parsing row {}: {}", processed_rows + 1, e);
-                    valid_line = false;
-                }
+        let record = match result {
+            Ok(record) => record,
+            Err(e) => {
+                println!("Error reading record {}: {}", processed_rows + 1, e);
+                continue;
             }
-        }
+        };
 
-        if !valid_line {
-            processed_rows += 1;
-            continue;
-        }
-
-        // Construct a valid PostgreSQL COPY line
-        let copy_line = validated_fields
-            .iter()
-            .map(|f| {
-                if f.is_empty() {
-                    "\\N".to_string() // PostgreSQL NULL value
-                } else if parsed_fields[validated_fields.iter().position(|x| x == f).unwrap()].field_type == "integer" {
-                    // For integer fields, don't quote them
-                    f.to_string()
+        // Build the COPY line
+        let copy_line = record.iter()
+            .map(|field| {
+                if field.is_empty() {
+                    "\\N".to_string()  // PostgreSQL NULL
                 } else {
-                    // For text fields, quote and escape
-                    format!("\"{}\"", f.replace('"', "\"\""))
+                    // Escape special characters for COPY
+                    let escaped = field
+                        .replace('\\', "\\\\")
+                        .replace('\t', "\\t")
+                        .replace('\n', "\\n")
+                        .replace('\r', "\\r")
+                        .replace(',', "\\,");
+                    
+                    // Quote the field if it contains special characters
+                    if escaped.contains(|c: char| c.is_whitespace() || c == ',' || c == '"' || c == '\\') {
+                        format!("\"{}\"", escaped.replace('"', "\"\""))
+                    } else {
+                        escaped
+                    }
                 }
             })
             .collect::<Vec<_>>()
-            .join("\t");  // Use tab as the COPY delimiter
+            .join(",");
 
-        // Add the newline
-        let mut line_bytes = BytesMut::from(copy_line.as_bytes());
-        line_bytes.extend_from_slice(b"\n");
-        writer.send(line_bytes).await.map_err(|e| e.to_string())?;
-        
+        current_batch.push_str(&copy_line);
+        current_batch.push('\n');
         processed_rows += 1;
 
-        // Emit progress every 1000 rows
-        if processed_rows % 1000 == 0 {
-            let _ = window.emit(
-                "migration_progress",
-                ProgressEvent {
-                    total_rows,
-                    processed_rows,
-                    row_count: processed_rows,
-                    batch_size: 1000,
-                    status: "processing".to_string(),
-                    message: Some(format!("Processed {} rows", processed_rows)),
-                },
-            );
+        // Write batch if it's full
+        if processed_rows % BATCH_SIZE == 0 {
+            let bytes = BytesMut::from(current_batch.as_bytes());
+            writer.send(bytes).await.map_err(|e| {
+                println!("Error writing batch: {}", e);
+                e.to_string()
+            })?;
+            
+            current_batch.clear();
+
+            // Only update progress at most once per second
+            if last_progress_update.elapsed() >= PROGRESS_UPDATE_INTERVAL {
+                let elapsed = start_time.elapsed().as_secs_f64();
+                let rate = processed_rows as f64 / elapsed;
+                
+                let _ = window.emit(
+                    "migration_progress",
+                    ProgressEvent {
+                        total_rows,
+                        processed_rows,
+                        row_count: BATCH_SIZE,
+                        batch_size: BATCH_SIZE,
+                        status: "copying_data".to_string(),
+                        message: Some(format!("Processed {} of {} rows ({:.0} rows/sec)", 
+                            processed_rows, total_rows, rate)),
+                    },
+                );
+                
+                last_progress_update = std::time::Instant::now();
+            }
         }
     }
 
-    // Finish COPY operation
-    finish_copy(writer).await.map_err(|e| e.to_string())?;
+    // Write any remaining records
+    if !current_batch.is_empty() {
+        println!("Writing final batch...");
+        let bytes = BytesMut::from(current_batch.as_bytes());
+        writer.send(bytes).await.map_err(|e| {
+            println!("Error writing final batch: {}", e);
+            e.to_string()
+        })?;
+    }
 
-    // Final progress event
+    // Finish COPY operation
+    println!("Finishing COPY operation...");
+    finish_copy(writer).await.map_err(|e| {
+        println!("Error finishing COPY: {}", e);
+        e.to_string()
+    })?;
+
+    println!("Import completed successfully");
     let _ = window.emit(
         "migration_progress",
         ProgressEvent {
-            total_rows,
+            total_rows: processed_rows,  // Use actual final count
             processed_rows,
             row_count: processed_rows,
-            batch_size: 0,
+            batch_size: BATCH_SIZE,
             status: "complete".to_string(),
-            message: None,
+            message: Some(format!("Successfully imported {} rows", processed_rows)),
         },
     );
 

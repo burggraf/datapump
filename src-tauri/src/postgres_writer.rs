@@ -48,7 +48,7 @@ pub async fn start_copy<'a>(
     client: &'a Client,
     table_name: &str,
     columns: &[(String, String)],
-    _delimiter: &str,  // We'll always use tab as the COPY delimiter
+    delimiter: &str,  // Now we'll use the provided delimiter
 ) -> Result<Pin<Box<dyn Sink<BytesMut, Error = tokio_postgres::Error> + Send>>, String> {
     let column_names = columns
         .iter()
@@ -56,17 +56,27 @@ pub async fn start_copy<'a>(
         .collect::<Vec<_>>()
         .join(", ");
 
+    // Convert delimiter to PostgreSQL format
+    let pg_delimiter = match delimiter {
+        "," => "','",
+        "\t" => "E'\\t'",
+        ";" => "';'",
+        _ => "','"  // Default to comma
+    };
+
     let copy_sql = format!(
-        "COPY \"{}\" ({}) FROM STDIN WITH (FORMAT csv, DELIMITER E'\\t', QUOTE '\"', NULL '\\N')",
-        table_name, column_names
+        "COPY \"{}\" ({}) FROM STDIN WITH (FORMAT csv, DELIMITER {}, QUOTE '\"', ESCAPE '\\', NULL '\\N')",
+        table_name, column_names, pg_delimiter
     );
-    println!("COPY SQL: {}", copy_sql);
+    
+    println!("Starting COPY with SQL: {}", copy_sql);
     
     let writer = client
         .copy_in(&copy_sql)
         .await
         .map_err(|e| format!("Failed to start COPY operation: {}", e))?;
 
+    println!("COPY operation started successfully");
     Ok(Box::pin(writer))
 }
 
@@ -75,19 +85,24 @@ pub async fn write_copy_row(
     writer: &mut Pin<Box<dyn Sink<BytesMut, Error = tokio_postgres::Error> + Send>>,
     record: BytesMut,
 ) -> Result<(), String> {
+    println!("Writing record: {} bytes", record.len());
     writer
         .send(record)
         .await
-        .map_err(|e| format!("Failed to write record: {}", e))
+        .map_err(|e| format!("Failed to write record: {}", e))?;
+    println!("Record written successfully");
+    Ok(())
 }
 
 /// Finish a COPY operation
 pub async fn finish_copy(
     mut writer: Pin<Box<dyn Sink<BytesMut, Error = tokio_postgres::Error> + Send>>,
 ) -> Result<u64, String> {
+    println!("Finishing COPY operation");
     writer
         .close()
         .await
         .map_err(|e| format!("Failed to finish COPY operation: {}", e))?;
+    println!("COPY operation finished successfully");
     Ok(0)  // Return number of rows copied
 }

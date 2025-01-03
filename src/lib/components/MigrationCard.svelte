@@ -125,7 +125,7 @@
 		{#if migrationCard.migrationInProgress}
 			<Button
 				onclick={() => migrationCard.cancelMigration()}
-				disabled={migrationCard.status !== "processing"}
+				disabled={false}
 				class="bg-red-500 hover:bg-red-600"
 			>
 				Cancel Migration
@@ -147,7 +147,7 @@
 						: 0}%
 				</div>
 				<div>Rows per Second:</div>
-				<div>{migrationCard.rows_per_second}</div>
+				<div>{migrationCard.rowsPerSecond}</div>
 				<div>Est. Time Remaining:</div>
 				<div>{migrationCard.timeRemainingDisplay}</div>
 			</div>
