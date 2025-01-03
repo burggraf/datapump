@@ -10,8 +10,9 @@ use serde_json::Value;
 use chrono;
 use csv::{ReaderBuilder, Trim};
 use std::str;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 struct Field {
     name: String,
     field_type: String,
@@ -70,17 +71,11 @@ fn create_table_sql(table_name: &str, fields: &[Field]) -> String {
     format!("CREATE TABLE IF NOT EXISTS \"{}\" ({})", table_name, columns)
 }
 
-#[tauri::command]
-pub async fn import_csv_to_postgres(
-    window: tauri::Window,
+#[tauri::command(rename_all = "camelCase")]
+pub async fn check_postgres_table_exists(
     connection_string: String,
-    path_to_file: String,
     table_name: String,
-    delimiter: String,
-    linebreak: String,
-    fields: Vec<Value>,
-) -> Result<(), String> {
-    // First, check if the table already exists
+) -> Result<bool, String> {
     let (client, connection) = tokio_postgres::connect(&connection_string, NoTls)
         .await
         .map_err(|e| format!("Failed to connect to database: {}", e))?;
@@ -102,10 +97,19 @@ pub async fn import_csv_to_postgres(
         .map_err(|e| format!("Failed to check if table exists: {}", e))?
         .get(0);
 
-    if exists {
-        return Err(format!("Table '{}' already exists. Aborting import.", table_name));
-    }
+    Ok(exists)
+}
 
+#[tauri::command(rename_all = "camelCase")]
+pub async fn import_csv_to_postgres(
+    window: tauri::Window,
+    connection_string: String,
+    path_to_file: String,
+    table_name: String,
+    delimiter: String,
+    linebreak: String,
+    fields: Vec<Value>,
+) -> Result<(), String> {
     // Debug print the new parameters
     println!("Received delimiter: {}", delimiter);
     println!("Received linebreak: {}", linebreak);
@@ -143,6 +147,12 @@ pub async fn import_csv_to_postgres(
             eprintln!("Connection error: {}", e);
         }
     });
+
+    // Check if table exists
+    let exists = check_postgres_table_exists(connection_string.clone(), table_name.clone()).await?;
+    if exists {
+        return Err(format!("Table '{}' already exists. Aborting import.", table_name));
+    }
 
     // Create table if it doesn't exist
     let _ = window.emit(

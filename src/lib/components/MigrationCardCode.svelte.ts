@@ -412,71 +412,94 @@ export default class MigrationCard {
         this.cancellationRequested = false;
         this.migrationInProgress = true;
 
-        // Analyze schema first
-        const schemaInfo = await this.analyzeSchema();
-        console.log("Schema Analysis Results:");
-        console.log("Field Delimiter:", schemaInfo.delimiter);
-        console.log("Line Break:", schemaInfo.linebreak);
-        console.log("Fields:", schemaInfo.fields);
-
-        // Reset cancellation flag in Rust
-        await invoke("reset_cancellation");
-
-        let ts = +new Date();
-        // Setup event listener
-        const unlisten = await listen<ProgressEvent>("migration_progress", (event) => {
-            if (this.cancellationRequested) return;
-
-            this.processedRows = event.payload.processed_rows;
-            this.totalRows = event.payload.total_rows;
-            this.batchSize = event.payload.batch_size;
-            this.status = event.payload.status;
-            this.message = event.payload.message || "";
-            const elapsed = (+new Date() - ts) / 1000;
-            const rps = elapsed > 0 ? this.processedRows / elapsed : 0;
-            this.rowsPerSecond = Math.round(rps);
-            
-            // Calculate time remaining only if we have a valid rate and total rows
-            if (rps > 0 && this.totalRows > 0 && this.processedRows < this.totalRows) {
-                let timeRemaining = (this.totalRows - this.processedRows) / rps;
-                const hours = Math.floor(timeRemaining / 3600);
-                const minutes = Math.floor((timeRemaining % 3600) / 60);
-                const seconds = Math.floor(timeRemaining % 60);
-                this.timeRemainingDisplay = `${hours}h ${minutes}m ${seconds}s`;
-            }
-            
-            if (this.status === "parsing_schema_complete" || this.status === "counted_rows") {
-                ts = +new Date();
-            }
-        });
-
         try {
-            // Construct connection string for PostgreSQL
-            const connectionString = `postgresql://${this.destinationUser}:${this.destinationPassword}@${this.destinationHost}:${this.destinationPort}/${this.destinationDatabaseName}`;
-
-            const result = await invoke("import_csv_to_postgres", {
-                connectionString,
-                pathToFile: this.sourcePath,
-                tableName: this.tableName,
-                delimiter: schemaInfo.delimiter,
-                linebreak: schemaInfo.linebreak,
-                fields: Object.entries(schemaInfo.fields).map(([name, type]) => ({ name, type }))
-            });
-        } catch (error) {
-            // Don't treat cancellation as an error
-            if (error === "Migration cancelled by user") {
-                console.log("Migration cancelled by user");
-                return;
+            // Check if table exists first for PostgreSQL
+            if (this.destinationType === "postgres") {
+                const exists = await invoke("check_postgres_table_exists", {
+                    connectionString: this.getConnectionString(),
+                    tableName: this.tableName
+                });
+                
+                if (exists) {
+                    throw `Table '${this.tableName}' already exists. Aborting import.`;
+                }
             }
-            
+
+            // Analyze schema
+            const schemaInfo = await this.analyzeSchema();
+            console.log("Schema Analysis Results:");
+            console.log("Field Delimiter:", schemaInfo.delimiter);
+            console.log("Line Break:", schemaInfo.linebreak);
+            console.log("Fields:", schemaInfo.fields);
+
+            // Reset cancellation flag in Rust
+            await invoke("reset_cancellation");
+
+            let ts = +new Date();
+            // Setup event listener
+            const unlisten = await listen<ProgressEvent>("migration_progress", (event) => {
+                if (this.cancellationRequested) return;
+
+                this.processedRows = event.payload.processed_rows;
+                this.totalRows = event.payload.total_rows;
+                this.batchSize = event.payload.batch_size;
+                this.status = event.payload.status;
+                this.message = event.payload.message || "";
+                const elapsed = (+new Date() - ts) / 1000;
+                const rps = elapsed > 0 ? this.processedRows / elapsed : 0;
+                this.rowsPerSecond = Math.round(rps);
+                
+                // Calculate time remaining only if we have a valid rate and total rows
+                if (rps > 0 && this.totalRows > 0 && this.processedRows < this.totalRows) {
+                    let timeRemaining = (this.totalRows - this.processedRows) / rps;
+                    const hours = Math.floor(timeRemaining / 3600);
+                    const minutes = Math.floor((timeRemaining % 3600) / 60);
+                    const seconds = Math.floor(timeRemaining % 60);
+                    this.timeRemainingDisplay = `${hours}h ${minutes}m ${seconds}s`;
+                }
+                
+                if (this.status === "parsing_schema_complete" || this.status === "counted_rows") {
+                    ts = +new Date();
+                }
+            });
+
+            try {
+                // Construct connection string for PostgreSQL
+                const connectionString = `postgresql://${this.destinationUser}:${this.destinationPassword}@${this.destinationHost}:${this.destinationPort}/${this.destinationDatabaseName}`;
+
+                const result = await invoke("import_csv_to_postgres", {
+                    connectionString,
+                    filePath: this.sourcePath,
+                    tableName: this.tableName,
+                    delimiter: schemaInfo.delimiter,
+                    linebreak: schemaInfo.linebreak,
+                    fields: Object.entries(schemaInfo.fields).map(([name, type]) => ({ name, type }))
+                });
+            } catch (error) {
+                // Don't treat cancellation as an error
+                if (error === "Migration cancelled by user") {
+                    console.log("Migration cancelled by user");
+                    return;
+                }
+                
+                console.error("Error during CSV to PostgreSQL migration:", error);
+                this.status = "Error: " + (error as string) || "ERROR";
+                throw error;
+            } finally {
+                // Clean up event listener
+                unlisten();
+                this.migrationInProgress = false;
+            }
+        } catch (error) {
             console.error("Error during CSV to PostgreSQL migration:", error);
             this.status = "Error: " + (error as string) || "ERROR";
-            throw error;
-        } finally {
-            // Clean up event listener
-            unlisten();
             this.migrationInProgress = false;
+            throw error;
         }
+    }
+
+    getConnectionString() {
+        return `postgresql://${this.destinationUser}:${this.destinationPassword}@${this.destinationHost}:${this.destinationPort}/${this.destinationDatabaseName}`;
     }
 }
 

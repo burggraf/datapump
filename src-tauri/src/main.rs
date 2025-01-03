@@ -80,7 +80,8 @@ fn main() {
             commands::reset_cancellation,
             commands::read_file_chunks,
             open_file_dialog,
-            postgres_csv_import::import_csv_to_postgres
+            postgres_csv_import::import_csv_to_postgres,
+            postgres_csv_import::check_postgres_table_exists
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
