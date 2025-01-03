@@ -11,6 +11,7 @@ use crate::postgres_writer::{start_copy, finish_copy};
 use tauri::Emitter;
 use serde_json::Value;
 use chrono;
+use csv::{ReaderBuilder, Trim};
 
 #[derive(Debug)]
 struct Field {
@@ -218,39 +219,46 @@ pub async fn import_csv_to_postgres(
                     continue;
                 }
 
-                // Split the line into fields and validate each one
-                let split_char = if delimiter == "\t" { '\t' } else { ',' };
-                let fields: Vec<&str> = buffer.trim().split(split_char).collect();
-                
-                // Print first few rows for debugging
-                if sample_rows < 5 {
-                    println!("Sample row {}: {:?}", sample_rows + 1, fields);
-                    sample_rows += 1;
-                }
+                // Create a CSV reader for this line with proper quote handling
+                let mut csv_reader = ReaderBuilder::new()
+                    .delimiter(if delimiter == "\t" { b'\t' } else { b',' })
+                    .has_headers(false)
+                    .trim(Trim::All)
+                    .from_reader(buffer.as_bytes());
 
-                let mut valid_line = true;
                 let mut validated_fields = Vec::new();
+                let mut valid_line = true;
 
-                for (i, field) in fields.iter().enumerate() {
-                    if i >= parsed_fields.len() {
-                        valid_line = false;
-                        eprintln!("Row {}: Too many fields", processed_rows + 1);
-                        break;
-                    }
+                // Read the single record
+                if let Some(result) = csv_reader.records().next() {
+                    match result {
+                        Ok(record) => {
+                            for (i, field) in record.iter().enumerate() {
+                                if i >= parsed_fields.len() {
+                                    valid_line = false;
+                                    eprintln!("Row {}: Too many fields", processed_rows + 1);
+                                    break;
+                                }
 
-                    let field_value = field.trim().trim_matches('"');
-                    if !parsed_fields[i].validate_value(field_value) {
-                        valid_line = false;
-                        eprintln!(
-                            "Row {}: Invalid value '{}' for {} field '{}'",
-                            processed_rows + 1,
-                            field_value,
-                            parsed_fields[i].field_type,
-                            parsed_fields[i].name
-                        );
-                        break;
+                                if !parsed_fields[i].validate_value(field) {
+                                    valid_line = false;
+                                    eprintln!(
+                                        "Row {}: Invalid value '{}' for {} field '{}'",
+                                        processed_rows + 1,
+                                        field,
+                                        parsed_fields[i].field_type,
+                                        parsed_fields[i].name
+                                    );
+                                    break;
+                                }
+                                validated_fields.push(field.to_string());
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Error parsing row {}: {}", processed_rows + 1, e);
+                            valid_line = false;
+                        }
                     }
-                    validated_fields.push(field_value);
                 }
 
                 if !valid_line {
@@ -263,13 +271,12 @@ pub async fn import_csv_to_postgres(
                 // Construct a valid PostgreSQL COPY line
                 let copy_line = validated_fields
                     .iter()
-                    .map(|&f| {
+                    .map(|f| {
                         if f.is_empty() {
                             "\\N".to_string() // PostgreSQL NULL value
-                        } else if f.contains(&delimiter) || f.contains('"') || f.contains('\\') || f.contains('\n') {
-                            format!("\"{}\"", f.replace('"', "\"\""))
                         } else {
-                            f.to_string()
+                            // Always quote the field and escape any quotes within it
+                            format!("\"{}\"", f.replace('"', "\"\""))
                         }
                     })
                     .collect::<Vec<_>>()
