@@ -469,7 +469,7 @@ export default class MigrationCard {
 
                 const result = await invoke("import_csv_to_postgres", {
                     connectionString,
-                    filePath: this.sourcePath,
+                    pathToFile: this.sourcePath,
                     tableName: this.tableName,
                     delimiter: schemaInfo.delimiter,
                     linebreak: schemaInfo.linebreak,
