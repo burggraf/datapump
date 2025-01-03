@@ -127,7 +127,9 @@ pub async fn csv_to_postgres(
     postgres_writer::create_table(&client, &tableName, &columns).await?;
 
     // 5. Begin COPY operation
-    let mut copy_writer = postgres_writer::start_copy(&client, &tableName, &columns).await?;
+    let delimiter = csv_reader::detect_delimiter(&filePath)?;
+    let delimiter_str = if delimiter == b'\t' { "\t" } else { "," };
+    let mut copy_writer = postgres_writer::start_copy(&client, &tableName, &columns, delimiter_str).await?;
 
     // 6. Count total rows (for progress reporting)
     let _ = window.emit(
@@ -156,7 +158,6 @@ pub async fn csv_to_postgres(
     );
 
     // 7. Detect delimiter and create a CSV reader
-    let delimiter = csv_reader::detect_delimiter(&filePath)?;
     let mut rdr = csv_reader::create_csv_reader(&filePath, delimiter)?;
 
     // Reset cancellation flag at the start of migration

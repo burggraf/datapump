@@ -2,11 +2,12 @@ use futures_util::SinkExt;
 use std::pin::pin;
 use tokio::fs::File;
 use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio_postgres::NoTls;
-use bytes::Bytes;
-use csv::ReaderBuilder;
+use tokio_postgres::{NoTls, CopyInSink};
+use bytes::{Bytes, BytesMut};
+use std::pin::Pin;
 use std::fs;
 use crate::commands::{ProgressEvent, is_cancellation_requested};
+use crate::postgres_writer::{start_copy, finish_copy};
 use tauri::Emitter;
 use serde_json::Value;
 
@@ -45,11 +46,11 @@ fn parse_fields(fields: Vec<Value>) -> Result<Vec<Field>, String> {
 
 fn create_table_sql(table_name: &str, fields: &[Field]) -> String {
     let columns = fields.iter()
-        .map(|field| format!("{} {}", field.name, field.to_postgres_type()))
+        .map(|field| format!("\"{}\" {}", field.name, field.to_postgres_type()))
         .collect::<Vec<_>>()
         .join(", ");
     
-    format!("CREATE TABLE IF NOT EXISTS {} ({})", table_name, columns)
+    format!("CREATE TABLE IF NOT EXISTS \"{}\" ({})", table_name, columns)
 }
 
 #[tauri::command]
@@ -154,87 +155,71 @@ pub async fn import_csv_to_postgres(
     let mut reader = BufReader::new(file);
 
     // Start COPY operation
-    let writer = client
-        .copy_in(&format!("COPY {} FROM STDIN WITH CSV HEADER DELIMITER '{}'", table_name, delimiter))
-        .await
-        .map_err(|e| e.to_string())?;
+    let mut writer = start_copy(
+        &client,
+        &table_name,
+        &parsed_fields.iter().map(|f| (f.name.clone(), f.field_type.clone())).collect::<Vec<_>>(),
+        &delimiter
+    )
+    .await
+    .map_err(|e| e.to_string())?;
     
-    let mut writer = pin!(writer);
     let mut buffer = String::new();
     let mut processed_rows = 0;
     let mut last_logged = 0;
-    let mut first_line = true;  // Skip the header row since we specified HEADER in COPY
-    
-    while reader
-        .read_line(&mut buffer)
-        .await
-        .map_err(|e| e.to_string())?
-        > 0
-    {
-        if first_line {
-            first_line = false;
-            buffer.clear();
-            continue;
-        }
 
-        // Check for cancellation
+    // Process the file line by line
+    loop {
         if is_cancellation_requested() {
-            // Attempt to finish the current COPY operation gracefully
-            if let Err(e) = writer.as_mut().finish().await {
+            // Try to finish the COPY operation gracefully
+            if let Err(e) = finish_copy(writer).await {
                 eprintln!("Error finishing COPY operation during cancellation: {}", e);
             }
-            
-            // Emit cancellation event
-            let _ = window.emit(
-                "migration_progress",
-                ProgressEvent {
-                    total_rows,
-                    processed_rows,
-                    row_count: processed_rows,
-                    batch_size: 0,
-                    status: "cancelled".to_string(),
-                    message: Some("Migration cancelled by user".to_string()),
-                },
-            );
-            
             return Err("Migration cancelled by user".to_string());
         }
 
-        processed_rows += 1;
-        
-        // Log progress every 10,000 rows
-        if processed_rows - last_logged >= 10_000 {
-            last_logged = processed_rows;
-            let _ = window.emit(
-                "migration_progress",
-                ProgressEvent {
-                    total_rows,
-                    processed_rows,
-                    row_count: processed_rows,
-                    batch_size: 0,
-                    status: "processing".to_string(),
-                    message: Some(format!(
-                        "Processed {} rows ({:.1}%)",
-                        processed_rows,
-                        (processed_rows as f64 / total_rows as f64) * 100.0
-                    )),
-                },
-            );
-        }
+        // Read a line from the file
+        match reader.read_line(&mut buffer).await {
+            Ok(0) => break, // EOF
+            Ok(_) => {
+                // Skip empty lines
+                if buffer.trim().is_empty() {
+                    buffer.clear();
+                    continue;
+                }
 
-        // Ensure the line ends with a newline
-        if !buffer.ends_with('\n') {
-            buffer.push('\n');
-        }
+                // Convert the buffer to BytesMut and write
+                let line_bytes = BytesMut::from(buffer.as_bytes());
+                writer.send(line_bytes).await.map_err(|e| e.to_string())?;
+                buffer.clear();
+                processed_rows += 1;
 
-        // Convert the buffer to Bytes and write
-        let line_bytes = Bytes::from(buffer.as_bytes().to_vec());
-        writer.send(line_bytes).await.map_err(|e| e.to_string())?;
-        buffer.clear();
+                // Log progress every 10,000 rows
+                if processed_rows - last_logged >= 10_000 {
+                    last_logged = processed_rows;
+                    let _ = window.emit(
+                        "migration_progress",
+                        ProgressEvent {
+                            total_rows,
+                            processed_rows,
+                            row_count: processed_rows,
+                            batch_size: 0,
+                            status: "processing".to_string(),
+                            message: Some(format!(
+                                "Processed {} rows ({:.1}%)",
+                                processed_rows,
+                                (processed_rows as f64 / total_rows as f64) * 100.0
+                            )),
+                        },
+                    );
+                }
+            }
+            Err(e) => return Err(e.to_string()),
+        }
     }
 
     // Complete COPY operation
-    writer.as_mut().finish().await.map_err(|e| e.to_string())?;
+    finish_copy(writer).await.map_err(|e| e.to_string())?;
 
     // Final progress event
     let _ = window.emit(

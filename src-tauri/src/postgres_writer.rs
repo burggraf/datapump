@@ -52,6 +52,7 @@ pub async fn start_copy(
     client: &Client,
     table_name: &str,
     columns: &[(String, String)],
+    delimiter: &str,
 ) -> Result<Pin<Box<CopyInSink<BytesMut>>>, String> {
     let column_names = columns
         .iter()
@@ -59,7 +60,17 @@ pub async fn start_copy(
         .collect::<Vec<_>>()
         .join(", ");
 
-    let copy_sql = format!("COPY {} ({}) FROM STDIN WITH CSV", table_name, column_names);
+    // Handle tab delimiter specially
+    let delimiter_str = if delimiter == "\t" {
+        "E'\\t'"
+    } else {
+        "','"
+    };
+
+    let copy_sql = format!(
+        "COPY {} ({}) FROM STDIN WITH (FORMAT CSV, DELIMITER {})",
+        table_name, column_names, delimiter_str
+    );
     
     let writer = client
         .copy_in(&copy_sql)

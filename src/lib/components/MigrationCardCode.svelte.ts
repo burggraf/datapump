@@ -79,14 +79,16 @@ export default class MigrationCard {
                 if (firstBatch) {
                     const firstChunkResults: { data: any[]; meta: Papa.ParseMeta } = await new Promise((resolve, reject) => {
                         console.log('Parsing first chunk to determine schema...');
+                        // Check if the chunk contains tabs
+                        const hasTab = chunks[0].includes('\t');
                         Papa.parse(chunks[0], {
                             header: true,
-                            delimiter: ',', // Use comma for CSV files
+                            delimiter: hasTab ? '\t' : ',',  // Use tab if detected, otherwise comma
                             skipEmptyLines: true,
                             complete: (results) => {
                                 console.log('First chunk parsed:', results.meta);
                                 // Store delimiter and linebreak from first chunk
-                                fileDelimiter = results.meta.delimiter;
+                                fileDelimiter = hasTab ? '\t' : ',';
                                 linebreak = results.meta.linebreak;
                                 resolve(results);
                             },
