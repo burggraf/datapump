@@ -79,16 +79,36 @@ export default class MigrationCard {
                 if (firstBatch) {
                     const firstChunkResults: { data: any[]; meta: Papa.ParseMeta } = await new Promise((resolve, reject) => {
                         console.log('Parsing first chunk to determine schema...');
-                        // Check if the chunk contains tabs
-                        const hasTab = chunks[0].includes('\t');
+                        // Check for different delimiters in order of preference
+                        const firstLine = chunks[0].split('\n')[0];
+                        let delimiter = ',';  // default
+                        
+                        // Count occurrences of potential delimiters in the first line
+                        const delimiterCounts = {
+                            '\t': (firstLine.match(/\t/g) || []).length,
+                            ';': (firstLine.match(/;/g) || []).length,
+                            ',': (firstLine.match(/,/g) || []).length
+                        };
+                        
+                        // Choose the delimiter that appears most frequently
+                        let maxCount = 0;
+                        for (const [delim, count] of Object.entries(delimiterCounts)) {
+                            if (count > maxCount) {
+                                maxCount = count;
+                                delimiter = delim;
+                            }
+                        }
+                        
+                        console.log('Detected delimiter:', delimiter);
+                        
                         Papa.parse(chunks[0], {
                             header: true,
-                            delimiter: hasTab ? '\t' : ',',  // Use tab if detected, otherwise comma
+                            delimiter: delimiter,
                             skipEmptyLines: true,
                             complete: (results) => {
                                 console.log('First chunk parsed:', results.meta);
                                 // Store delimiter and linebreak from first chunk
-                                fileDelimiter = hasTab ? '\t' : ',';
+                                fileDelimiter = delimiter;
                                 linebreak = results.meta.linebreak;
                                 resolve(results);
                             },

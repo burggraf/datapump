@@ -3,6 +3,7 @@
 use crate::csv_reader; // new module for CSV reading
 use crate::csv_schema; // your existing csv_schema module
 use crate::postgres_writer; // new module for PostgreSQL writing
+use bytes::BytesMut;
 use crate::sqlite_writer; // new module for SQLite writing
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -221,12 +222,25 @@ pub async fn csv_to_postgres(
             }
         };
 
-        // Write the record using COPY
-        postgres_writer::copy_record(&mut copy_writer, &record).await?;
+        // Convert the record to a tab-separated string
+        let copy_line = record.iter()
+            .map(|field| {
+                if field.is_empty() {
+                    "\\N".to_string() // PostgreSQL NULL value
+                } else {
+                    // Quote and escape the field
+                    format!("\"{}\"", field.replace('"', "\"\""))
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\t");
+
+        // Write the record using the COPY protocol
+        postgres_writer::write_copy_row(&mut copy_writer, BytesMut::from(copy_line.as_bytes())).await?;
     }
 
     // Finish COPY operation
-    let rows_copied = postgres_writer::finish_copy(copy_writer).await?;
+    postgres_writer::finish_copy(copy_writer).await?;
 
     // Final progress event
     let _ = window.emit(
@@ -234,10 +248,10 @@ pub async fn csv_to_postgres(
         ProgressEvent {
             total_rows,
             processed_rows,
-            row_count,
+            row_count: processed_rows,
             batch_size: 0,
             status: "complete".to_string(),
-            message: Some(format!("Successfully copied {} rows", rows_copied)),
+            message: Some(format!("Successfully copied {} rows", processed_rows)),
         },
     );
 
@@ -423,63 +437,71 @@ pub async fn csv_to_sqlite(
 
 #[tauri::command]
 pub async fn read_file_chunks(filePath: String, chunkSize: usize, offset: usize) -> Result<(Vec<String>, bool), String> {
-    use tokio::io::{AsyncBufReadExt, BufReader};
     use tokio::fs::File;
+    use tokio::io::AsyncReadExt;
     use std::time::Instant;
 
     println!("Starting to read file from offset {}: {}", offset, filePath);
     let start = Instant::now();
     
-    let file = File::open(&filePath).await.map_err(|e| e.to_string())?;
-    let reader = BufReader::new(file);
-    let mut lines = reader.lines();
+    let mut file = File::open(&filePath).await.map_err(|e| e.to_string())?;
     
-    let mut chunks = Vec::new();
-    let mut current_chunk = String::with_capacity(chunkSize * 100); // Pre-allocate space
-    let mut line_count = 0;
-    let mut total_lines = 0;
-    let mut chunk_number = 0;
-    let mut current_offset = 0;
-    let batch_size = 10; // Number of chunks per batch
+    // Read the entire file into a buffer
+    let mut buffer = Vec::new();
+    file.read_to_end(&mut buffer).await.map_err(|e| e.to_string())?;
     
-    // Get header line if this is the first batch
-    if offset == 0 {
-        let first_line = match lines.next_line().await.map_err(|e| e.to_string())? {
-            Some(line) => line,
-            None => return Ok((Vec::new(), true)), // Empty file
-        };
-        current_chunk.push_str(&first_line);
-        current_chunk.push('\n');
-        line_count += 1;
-        total_lines += 1;
-    }
-
-    // Skip to the requested offset
-    while current_offset < offset {
-        if lines.next_line().await.map_err(|e| e.to_string())?.is_none() {
-            return Ok((chunks, true)); // Reached end of file
+    // Helper function to convert Windows-1252 to UTF-8
+    fn convert_to_utf8(input: &[u8]) -> String {
+        let mut result = String::with_capacity(input.len());
+        for &byte in input {
+            let c = match byte {
+                0xF3 => 'ó',  // Handle ó character
+                0xF2 => 'ò',  // Handle ò character
+                0xF1 => 'ñ',  // Handle ñ character
+                0xE1 => 'á',  // Handle á character
+                0xE9 => 'é',  // Handle é character
+                0xED => 'í',  // Handle í character
+                0xFA => 'ú',  // Handle ú character
+                0x0D => '\r', // Handle CR
+                0x0A => '\n', // Handle LF
+                _ => byte as char,
+            };
+            result.push(c);
         }
-        current_offset += 1;
+        result
     }
 
-    while let Some(line) = lines.next_line().await.map_err(|e| e.to_string())? {
-        current_chunk.push_str(&line);
+    // Convert the entire buffer to UTF-8
+    let content = convert_to_utf8(&buffer);
+    
+    // Split into lines
+    let lines: Vec<&str> = content.split('\n').collect();
+    let total_lines = lines.len();
+    
+    if total_lines == 0 {
+        return Ok((Vec::new(), true));
+    }
+
+    let mut chunks = Vec::new();
+    let mut current_chunk = String::with_capacity(chunkSize * 100);
+    let mut line_count = 0;
+    let mut chunk_number = 0;
+    let batch_size = 10;
+
+    // Calculate the range of lines for this batch
+    let start_line = offset;
+    let end_line = (start_line + (chunkSize * batch_size)).min(total_lines);
+
+    for line in lines[start_line..end_line].iter() {
+        current_chunk.push_str(line);
         current_chunk.push('\n');
         line_count += 1;
-        total_lines += 1;
 
         if line_count >= chunkSize {
             chunk_number += 1;
             chunks.push(current_chunk);
-            let elapsed = start.elapsed();
-            println!("Processed chunk {} ({} lines, {} total lines) in {:.2?}", 
-                chunk_number, line_count, total_lines, elapsed);
-            
-            // Return if we've reached the batch size
-            if chunks.len() >= batch_size {
-                println!("Returning batch of {} chunks", chunks.len());
-                return Ok((chunks, false)); // false indicates there might be more chunks
-            }
+            println!("Processed chunk {} ({} lines) in {:.2?}", 
+                chunk_number, line_count, start.elapsed());
             
             current_chunk = String::with_capacity(chunkSize * 100);
             line_count = 0;
@@ -490,13 +512,13 @@ pub async fn read_file_chunks(filePath: String, chunkSize: usize, offset: usize)
     if !current_chunk.is_empty() {
         chunk_number += 1;
         chunks.push(current_chunk);
-        let elapsed = start.elapsed();
-        println!("Processed final chunk {} ({} lines, {} total lines) in {:.2?}", 
-            chunk_number, line_count, total_lines, elapsed);
+        println!("Processed final chunk {} ({} lines) in {:.2?}", 
+            chunk_number, line_count, start.elapsed());
     }
 
-    println!("Finished reading file. Total chunks in this batch: {}, Total lines: {}, Time: {:.2?}", 
-        chunks.len(), total_lines, start.elapsed());
+    println!("Finished reading file. Total chunks: {}, Total lines: {}, Time: {:.2?}", 
+        chunks.len(), end_line - start_line, start.elapsed());
 
-    Ok((chunks, true)) // true indicates this is the last batch
+    let is_last_batch = end_line >= total_lines;
+    Ok((chunks, is_last_batch))
 }

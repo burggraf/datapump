@@ -1,19 +1,15 @@
-// src/postgres_write.rs
-
-use csv::StringRecord;
+use tokio_postgres::{Client, Error, NoTls};
 use bytes::BytesMut;
-use futures_util::SinkExt;
+use futures_util::{Sink, SinkExt};
 use std::pin::Pin;
-use tokio_postgres::{Client, CopyInSink, NoTls};
 
 /// Open a PostgreSQL connection
 pub async fn open_connection(connection_string: &str) -> Result<Client, String> {
     let (client, connection) = tokio_postgres::connect(connection_string, NoTls)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Failed to connect to PostgreSQL: {}", e))?;
 
-    // The connection object performs the actual communication with the database,
-    // so spawn it off to run on its own.
+    // Spawn connection task
     tokio::spawn(async move {
         if let Err(e) = connection.await {
             eprintln!("Connection error: {}", e);
@@ -48,31 +44,23 @@ pub async fn create_table(
 }
 
 /// Start a COPY operation for bulk loading
-pub async fn start_copy(
-    client: &Client,
+pub async fn start_copy<'a>(
+    client: &'a Client,
     table_name: &str,
     columns: &[(String, String)],
-    delimiter: &str,
-) -> Result<Pin<Box<CopyInSink<BytesMut>>>, String> {
+    _delimiter: &str,  // We'll always use tab as the COPY delimiter
+) -> Result<Pin<Box<dyn Sink<BytesMut, Error = tokio_postgres::Error> + Send>>, String> {
     let column_names = columns
         .iter()
         .map(|(name, _)| format!("\"{}\"", name))
         .collect::<Vec<_>>()
         .join(", ");
 
-    // Handle tab delimiter specially
-    let delimiter_str = if delimiter == "\t" {
-        "E'\\t'"
-    } else {
-        "','"
-    };
-
     let copy_sql = format!(
-        "COPY \"{}\" ({}) FROM STDIN WITH (FORMAT CSV, DELIMITER {})",
-        table_name, column_names, delimiter_str
+        "COPY \"{}\" ({}) FROM STDIN WITH (FORMAT csv, DELIMITER E'\\t', QUOTE '\"', NULL '\\N')",
+        table_name, column_names
     );
-    
-    println!("Executing COPY command: {}", copy_sql);
+    println!("COPY SQL: {}", copy_sql);
     
     let writer = client
         .copy_in(&copy_sql)
@@ -83,44 +71,23 @@ pub async fn start_copy(
 }
 
 /// Write a CSV record using the COPY protocol
-pub async fn copy_record(
-    writer: &mut Pin<Box<CopyInSink<BytesMut>>>,
-    record: &StringRecord,
+pub async fn write_copy_row(
+    writer: &mut Pin<Box<dyn Sink<BytesMut, Error = tokio_postgres::Error> + Send>>,
+    record: BytesMut,
 ) -> Result<(), String> {
-    let mut line = String::new();
-    for (i, field) in record.iter().enumerate() {
-        if i > 0 {
-            line.push(',');
-        }
-        // Escape special characters and wrap in quotes if needed
-        if field.contains(',') || field.contains('"') || field.contains('\n') {
-            line.push('"');
-            for c in field.chars() {
-                if c == '"' {
-                    line.push('"'); // Double quotes to escape
-                }
-                line.push(c);
-            }
-            line.push('"');
-        } else {
-            line.push_str(field);
-        }
-    }
-    line.push('\n');
-
     writer
-        .send(BytesMut::from(line.as_bytes()))
+        .send(record)
         .await
-        .map_err(|e| format!("Failed to write record: {}", e))?;
-
-    Ok(())
+        .map_err(|e| format!("Failed to write record: {}", e))
 }
 
-/// Finish the COPY operation
-pub async fn finish_copy(mut writer: Pin<Box<CopyInSink<BytesMut>>>) -> Result<u64, String> {
+/// Finish a COPY operation
+pub async fn finish_copy(
+    mut writer: Pin<Box<dyn Sink<BytesMut, Error = tokio_postgres::Error> + Send>>,
+) -> Result<u64, String> {
     writer
-        .as_mut()
-        .finish()
+        .close()
         .await
-        .map_err(|e| format!("Failed to finish COPY operation: {}", e))
+        .map_err(|e| format!("Failed to finish COPY operation: {}", e))?;
+    Ok(0)  // Return number of rows copied
 }
