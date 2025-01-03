@@ -194,12 +194,19 @@ pub async fn import_csv_to_postgres(
     .await
     .map_err(|e| {
         println!("Failed to start COPY: {}", e);
-        e
+        e.to_string()
+    })?;
+
+    // Write binary header
+    let mut header_buf = BytesMut::new();
+    write_binary_header(&mut header_buf);
+    writer.send(header_buf).await.map_err(|e| {
+        println!("Error writing binary header: {}", e);
+        e.to_string()
     })?;
 
     let mut processed_rows = 0;
     const BATCH_SIZE: usize = 10000;
-    let mut current_batch = String::with_capacity(BATCH_SIZE * 100); // Pre-allocate string buffer
 
     // Process the file in streaming fashion
     println!("Processing file...");
@@ -209,6 +216,9 @@ pub async fn import_csv_to_postgres(
         .flexible(true)
         .from_path(&path_to_file)
         .map_err(|e| format!("Failed to create CSV reader: {}", e))?;
+
+    // Get field types for binary conversion
+    let field_types: Vec<String> = parsed_fields.iter().map(|f| f.field_type.clone()).collect();
 
     // Emit initial progress
     let _ = window.emit(
@@ -227,6 +237,8 @@ pub async fn import_csv_to_postgres(
     let mut last_progress_update = std::time::Instant::now();
     const PROGRESS_UPDATE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
 
+    let mut batch: Vec<BytesMut> = Vec::with_capacity(BATCH_SIZE);
+    
     for result in reader.records() {
         if is_cancellation_requested() {
             println!("Cancellation requested");
@@ -244,77 +256,48 @@ pub async fn import_csv_to_postgres(
             }
         };
 
-        // Build the COPY line
-        let copy_line = record.iter()
-            .map(|field| {
-                if field.is_empty() {
-                    "\\N".to_string()  // PostgreSQL NULL
-                } else {
-                    // Escape special characters for COPY
-                    let escaped = field
-                        .replace('\\', "\\\\")
-                        .replace('\t', "\\t")
-                        .replace('\n', "\\n")
-                        .replace('\r', "\\r")
-                        .replace(',', "\\,");
-                    
-                    // Quote the field if it contains special characters
-                    if escaped.contains(|c: char| c.is_whitespace() || c == ',' || c == '"' || c == '\\') {
-                        format!("\"{}\"", escaped.replace('"', "\"\""))
-                    } else {
-                        escaped
-                    }
-                }
-            })
-            .collect::<Vec<_>>()
-            .join(",");
+        // Convert record to Vec<String>
+        let record_values: Vec<String> = record.iter().map(|s| s.to_string()).collect();
+        
+        // Create binary record
+        let binary_record = prepare_binary_record(&record_values, &field_types);
+        writer.send(binary_record).await.map_err(|e| {
+            println!("Error writing record: {}", e);
+            e.to_string()
+        })?;
 
-        current_batch.push_str(&copy_line);
-        current_batch.push('\n');
         processed_rows += 1;
 
-        // Write batch if it's full
-        if processed_rows % BATCH_SIZE == 0 {
-            let bytes = BytesMut::from(current_batch.as_bytes());
-            writer.send(bytes).await.map_err(|e| {
-                println!("Error writing batch: {}", e);
-                e.to_string()
-            })?;
-            
-            current_batch.clear();
-
-            // Only update progress at most once per second
-            if last_progress_update.elapsed() >= PROGRESS_UPDATE_INTERVAL {
-                let elapsed = start_time.elapsed().as_secs_f64();
-                let rate = processed_rows as f64 / elapsed;
-                
-                let _ = window.emit(
-                    "migration_progress",
-                    ProgressEvent {
-                        total_rows,
+        // Update progress periodically
+        if last_progress_update.elapsed() >= PROGRESS_UPDATE_INTERVAL {
+            let _ = window.emit(
+                "migration_progress",
+                ProgressEvent {
+                    total_rows,
+                    processed_rows,
+                    row_count: processed_rows,
+                    batch_size: BATCH_SIZE,
+                    status: "copying_data".to_string(),
+                    message: Some(format!(
+                        "Imported {} of {} rows ({:.1}%)",
                         processed_rows,
-                        row_count: BATCH_SIZE,
-                        batch_size: BATCH_SIZE,
-                        status: "copying_data".to_string(),
-                        message: Some(format!("Processed {} of {} rows ({:.0} rows/sec)", 
-                            processed_rows, total_rows, rate)),
-                    },
-                );
-                
-                last_progress_update = std::time::Instant::now();
-            }
+                        total_rows,
+                        (processed_rows as f64 / total_rows as f64) * 100.0
+                    )),
+                },
+            );
+            
+            last_progress_update = std::time::Instant::now();
         }
     }
 
-    // Write any remaining records
-    if !current_batch.is_empty() {
-        println!("Writing final batch...");
-        let bytes = BytesMut::from(current_batch.as_bytes());
-        writer.send(bytes).await.map_err(|e| {
-            println!("Error writing final batch: {}", e);
-            e.to_string()
-        })?;
-    }
+    // Write trailer
+    let mut trailer_buf = BytesMut::new();
+    trailer_buf.extend_from_slice(&(-1i16).to_be_bytes()); // End marker
+    writer.send(trailer_buf).await.map_err(|e| {
+        println!("Error writing trailer: {}", e);
+        e.to_string()
+    })?;
 
     // Finish COPY operation
     println!("Finishing COPY operation...");
@@ -337,4 +320,50 @@ pub async fn import_csv_to_postgres(
     );
 
     Ok(())
+}
+
+// Helper function to write binary header
+fn write_binary_header(header_buf: &mut BytesMut) {
+    // Write header format (0)
+    header_buf.extend_from_slice(&(0 as u8).to_be_bytes());
+    // Write header flags (0)
+    header_buf.extend_from_slice(&(0 as u16).to_be_bytes());
+}
+
+// Helper function to prepare binary record
+fn prepare_binary_record(record_values: &[String], field_types: &[String]) -> BytesMut {
+    let mut binary_record = BytesMut::new();
+    
+    // Write number of fields
+    binary_record.extend_from_slice(&(record_values.len() as i16).to_be_bytes());
+    
+    for (value, field_type) in record_values.iter().zip(field_types.iter()) {
+        match field_type.as_str() {
+            "integer" => {
+                let value: i32 = value.parse().unwrap_or(0);
+                binary_record.extend_from_slice(&value.to_be_bytes());
+            },
+            "number" => {
+                let value: f64 = value.parse().unwrap_or(0.0);
+                binary_record.extend_from_slice(&value.to_be_bytes());
+            },
+            "date" => {
+                if let Ok(value) = chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d") {
+                    // Convert date to PostgreSQL date format (days since 2000-01-01)
+                    let epoch = chrono::NaiveDate::from_ymd_opt(2000, 1, 1).unwrap();
+                    let days = value.signed_duration_since(epoch).num_days() as i32;
+                    binary_record.extend_from_slice(&days.to_be_bytes());
+                } else {
+                    // Write NULL for invalid dates
+                    binary_record.extend_from_slice(&(-1i32).to_be_bytes());
+                }
+            },
+            _ => {
+                let value_bytes = value.as_bytes();
+                binary_record.extend_from_slice(&(value_bytes.len() as i32).to_be_bytes());
+                binary_record.extend_from_slice(value_bytes);
+            }
+        }
+    }
+    binary_record
 }
